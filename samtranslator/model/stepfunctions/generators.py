@@ -201,8 +201,7 @@ class StateMachineGenerator(object):
         # Indenting and then splitting the JSON-encoded string for readability of the state machine definition in the CloudFormation translated resource.
         # Separators are passed explicitly to maintain trailing whitespace consistency across Py2 and Py3
         definition_lines = json.dumps(definition_dict, sort_keys=True, indent=4, separators=(",", ": ")).split("\n")
-        definition_string = fnJoin("\n", definition_lines)
-        return definition_string
+        return fnJoin("\n", definition_lines)
 
     def _construct_role(self):
         """
@@ -221,7 +220,7 @@ class StateMachineGenerator(object):
             policy_template_processor=None,
         )
 
-        execution_role = construct_role_for_resource(
+        return construct_role_for_resource(
             resource_logical_id=self.logical_id,
             attributes=self.passthrough_resource_attributes,
             managed_policy_map=self.managed_policy_map,
@@ -230,7 +229,6 @@ class StateMachineGenerator(object):
             tags=self._construct_tag_list(),
             permissions_boundary=self.permissions_boundary,
         )
-        return execution_role
 
     def _construct_tag_list(self):
         """
@@ -262,7 +260,7 @@ class StateMachineGenerator(object):
                     for name, resource in self.event_resources[logical_id].items():
                         kwargs[name] = resource
                 except (TypeError, AttributeError) as e:
-                    raise InvalidEventException(logical_id, "{}".format(e))
+                    raise InvalidEventException(logical_id, f"{e}")
                 resources += eventsource.to_cloudformation(resource=self.state_machine, **kwargs)
 
         return resources

@@ -107,7 +107,7 @@ class ApiGatewayDeployment(Resource):
         generator = logical_id_generator.LogicalIdGenerator(self.logical_id, data)
         self.logical_id = generator.gen()
         digest = generator.get_hash(length=40)  # Get the full hash
-        self.Description = "RestApi deployment id: {}".format(digest)
+        self.Description = f"RestApi deployment id: {digest}"
         stage.update_deployment_ref(self.logical_id)
 
 
@@ -119,8 +119,10 @@ class ApiGatewayResponse(object):
             for response_parameter_key in response_parameters.keys():
                 if response_parameter_key not in ApiGatewayResponse.ResponseParameterProperties:
                     raise InvalidResourceException(
-                        api_logical_id, "Invalid gateway response parameter '{}'".format(response_parameter_key)
+                        api_logical_id,
+                        f"Invalid gateway response parameter '{response_parameter_key}'",
                     )
+
 
         status_code_str = self._status_code_string(status_code)
         # status_code must look like a status code, if present. Let's not be judgmental; just check 0-999.
@@ -146,13 +148,15 @@ class ApiGatewayResponse(object):
 
     def _add_prefixes(self, response_parameters):
         GATEWAY_RESPONSE_PREFIX = "gatewayresponse."
-        prefixed_parameters = {}
-        for key, value in response_parameters.get("Headers", {}).items():
-            prefixed_parameters[GATEWAY_RESPONSE_PREFIX + "header." + key] = value
+        prefixed_parameters = {
+            f"{GATEWAY_RESPONSE_PREFIX}header.{key}": value
+            for key, value in response_parameters.get("Headers", {}).items()
+        }
+
         for key, value in response_parameters.get("Paths", {}).items():
-            prefixed_parameters[GATEWAY_RESPONSE_PREFIX + "path." + key] = value
+            prefixed_parameters[f"{GATEWAY_RESPONSE_PREFIX}path.{key}"] = value
         for key, value in response_parameters.get("QueryStrings", {}).items():
-            prefixed_parameters[GATEWAY_RESPONSE_PREFIX + "querystring." + key] = value
+            prefixed_parameters[f"{GATEWAY_RESPONSE_PREFIX}querystring.{key}"] = value
 
         return prefixed_parameters
 
@@ -322,17 +326,16 @@ class ApiGatewayAuthorizer(object):
                 swagger[APIGATEWAY_AUTHORIZER_KEY]["authorizerCredentials"] = function_invoke_role
 
             if self._get_function_payload_type() == "REQUEST":
-                identity_source = self._get_identity_source()
-                if identity_source:
+                if identity_source := self._get_identity_source():
                     swagger[APIGATEWAY_AUTHORIZER_KEY]["identitySource"] = self._get_identity_source()
 
         # Authorizer Validation Expression is only allowed on COGNITO_USER_POOLS and LAMBDA_TOKEN
         is_lambda_token_authorizer = authorizer_type == "LAMBDA" and self._get_function_payload_type() == "TOKEN"
 
         if authorizer_type == "COGNITO_USER_POOLS" or is_lambda_token_authorizer:
-            identity_validation_expression = self._get_identity_validation_expression()
-
-            if identity_validation_expression:
+            if (
+                identity_validation_expression := self._get_identity_validation_expression()
+            ):
                 swagger[APIGATEWAY_AUTHORIZER_KEY]["identityValidationExpression"] = identity_validation_expression
 
         return swagger
@@ -347,20 +350,37 @@ class ApiGatewayAuthorizer(object):
         identity_source_context = []
 
         if self.identity.get("Headers"):
-            identity_source_headers = list(map(lambda h: "method.request.header." + h, self.identity.get("Headers")))
+            identity_source_headers = list(
+                map(
+                    lambda h: f"method.request.header.{h}",
+                    self.identity.get("Headers"),
+                )
+            )
+
 
         if self.identity.get("QueryStrings"):
             identity_source_query_strings = list(
-                map(lambda qs: "method.request.querystring." + qs, self.identity.get("QueryStrings"))
+                map(
+                    lambda qs: f"method.request.querystring.{qs}",
+                    self.identity.get("QueryStrings"),
+                )
             )
+
 
         if self.identity.get("StageVariables"):
             identity_source_stage_variables = list(
-                map(lambda sv: "stageVariables." + sv, self.identity.get("StageVariables"))
+                map(
+                    lambda sv: f"stageVariables.{sv}",
+                    self.identity.get("StageVariables"),
+                )
             )
 
+
         if self.identity.get("Context"):
-            identity_source_context = list(map(lambda c: "context." + c, self.identity.get("Context")))
+            identity_source_context = list(
+                map(lambda c: f"context.{c}", self.identity.get("Context"))
+            )
+
 
         identity_source_array = (
             identity_source_headers
@@ -368,9 +388,7 @@ class ApiGatewayAuthorizer(object):
             + identity_source_stage_variables
             + identity_source_context
         )
-        identity_source = ", ".join(identity_source_array)
-
-        return identity_source
+        return ", ".join(identity_source_array)
 
     def _get_user_pool_arn_array(self):
         return self.user_pool_arn if isinstance(self.user_pool_arn, list) else [self.user_pool_arn]
@@ -388,10 +406,7 @@ class ApiGatewayAuthorizer(object):
         if self.is_aws_iam_authorizer:
             return "AWS_IAM"
 
-        if self.user_pool_arn:
-            return "COGNITO_USER_POOLS"
-
-        return "LAMBDA"
+        return "COGNITO_USER_POOLS" if self.user_pool_arn else "LAMBDA"
 
     def _get_identity_header(self):
         if not self.identity or not self.identity.get("Header"):
@@ -400,10 +415,7 @@ class ApiGatewayAuthorizer(object):
         return self.identity.get("Header")
 
     def _get_reauthorize_every(self):
-        if not self.identity:
-            return None
-
-        return self.identity.get("ReauthorizeEvery")
+        return self.identity.get("ReauthorizeEvery") if self.identity else None
 
     def _get_function_invoke_role(self):
         if not self.function_invoke_role or self.function_invoke_role == "NONE":
@@ -422,7 +434,7 @@ class ApiGatewayAuthorizer(object):
         return "custom"
 
     def _get_function_payload_type(self):
-        return "TOKEN" if not self.function_payload_type else self.function_payload_type
+        return self.function_payload_type or "TOKEN"
 
     def _get_swagger_authorizer_type(self):
         authorizer_type = self._get_type()

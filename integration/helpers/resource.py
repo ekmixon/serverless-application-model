@@ -57,11 +57,11 @@ def verify_stack_resources(expected_file_path, stack_resources):
                 "ResourceType": parsed["ResourceType"],
             }
 
-            return "'{}' expected, '{}' found (Don't include the LogicalId random suffix)".format(
-                exp, parsed_trimed_down
-            )
+            return f"'{exp}' expected, '{parsed_trimed_down}' found (Don't include the LogicalId random suffix)"
+
         if exp["ResourceType"] != parsed["ResourceType"]:
-            return "'{}' expected, '{}' found".format(exp["ResourceType"], parsed["ResourceType"])
+            return f"""'{exp["ResourceType"]}' expected, '{parsed["ResourceType"]}' found"""
+
     return None
 
 
@@ -76,7 +76,10 @@ def generate_suffix():
     string
         Random lowercase alphanumeric string of length RANDOM_SUFFIX_LENGTH
     """
-    return "".join(random.choice(string.ascii_lowercase) for i in range(RANDOM_SUFFIX_LENGTH))
+    return "".join(
+        random.choice(string.ascii_lowercase)
+        for _ in range(RANDOM_SUFFIX_LENGTH)
+    )
 
 
 def _sort_resources(resources):

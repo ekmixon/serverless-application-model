@@ -114,7 +114,7 @@ class TestApiSettings(BaseTest):
             set(response["binaryMediaTypes"]), {"image/jpg", "image/png", "image/gif", "application/octet-stream"}
         )
         base_url = self.get_stack_output("ApiUrl")["OutputValue"]
-        self.verify_binary_media_request(base_url + "none", 200)
+        self.verify_binary_media_request(f"{base_url}none", 200)
 
     @parameterized.expand(
         [
@@ -171,11 +171,14 @@ class TestApiSettings(BaseTest):
             actual_hash = hashlib.sha1(response.content).hexdigest()
             self.assertEqual(expected_hash, actual_hash)
 
-        self.assertEqual(status, expected_status_code, " must return HTTP " + str(expected_status_code))
+        self.assertEqual(
+            status,
+            expected_status_code,
+            f" must return HTTP {str(expected_status_code)}",
+        )
 
 
 def get_resource_by_path(resources, path):
-    for resource in resources:
-        if resource["path"] == path:
-            return resource
-    return None
+    return next(
+        (resource for resource in resources if resource["path"] == path), None
+    )

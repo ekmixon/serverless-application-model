@@ -37,9 +37,10 @@ def parse_s3_url(url, bucket_name_property="Bucket", object_key_property="Key", 
         query = parse_qs(parsed.query)
 
         if parsed.netloc and parsed.path:
-            result = dict()
-            result[bucket_name_property] = parsed.netloc
-            result[object_key_property] = parsed.path.lstrip("/")
+            result = {
+                bucket_name_property: parsed.netloc,
+                object_key_property: parsed.path.lstrip("/"),
+            }
 
             # If there is a query string that has a single versionId field,
             # set the object version and return

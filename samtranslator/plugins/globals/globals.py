@@ -373,7 +373,7 @@ class GlobalProperties(object):
 
         else:
             raise TypeError(
-                "Unsupported type of objects. GlobalType={}, LocalType={}".format(token_global, token_local)
+                f"Unsupported type of objects. GlobalType={token_global}, LocalType={token_local}"
             )
 
     def _merge_lists(self, global_list, local_list):
@@ -433,13 +433,7 @@ class GlobalProperties(object):
         if isinstance(input, dict):
 
             # Intrinsic functions are always dicts
-            if is_intrinsics(input):
-                # Intrinsic functions are handled *exactly* like a primitive type because
-                # they resolve to a primitive type when creating a stack with CloudFormation
-                return self.TOKEN.PRIMITIVE
-            else:
-                return self.TOKEN.DICT
-
+            return self.TOKEN.PRIMITIVE if is_intrinsics(input) else self.TOKEN.DICT
         elif isinstance(input, list):
             return self.TOKEN.LIST
 
@@ -469,4 +463,4 @@ class InvalidGlobalsSectionException(Exception):
 
     @property
     def message(self):
-        return "'{}' section is invalid. {}".format(self._logical_id, self._message)
+        return f"'{self._logical_id}' section is invalid. {self._message}"

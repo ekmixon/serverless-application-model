@@ -51,17 +51,15 @@ class MetricsIntegrationTest(TestCase):
         self.assertEqual(latency_avg[0], 1400)
 
     def get_unique_namespace(self):
-        namespace = "SinglePublishTest-{}".format(uuid.uuid1())
+        namespace = f"SinglePublishTest-{uuid.uuid1()}"
         while True:
             response = self.cw_client.list_metrics(Namespace=namespace)
             if not response["Metrics"]:
                 return namespace
-            namespace = "SinglePublishTest-{}".format(uuid.uuid1())
+            namespace = f"SinglePublishTest-{uuid.uuid1()}"
 
     def get_metric_data(self, namespace, metric_name, dimensions, start_time, end_time, stat="Sum"):
-        retries = 3
-        while retries > 0:
-            retries -= 1
+        for _ in range(3, 0, -1):
             response = self.cw_client.get_metric_data(
                 MetricDataQueries=[
                     {
@@ -76,9 +74,11 @@ class MetricsIntegrationTest(TestCase):
                 StartTime=start_time,
                 EndTime=end_time,
             )
-            values = response["MetricDataResults"][0]["Values"]
-            if values:
+            if values := response["MetricDataResults"][0]["Values"]:
                 return values
-            print("No values found by for metric: {}. Waiting for 5 seconds...".format(metric_name))
+            print(
+                f"No values found by for metric: {metric_name}. Waiting for 5 seconds..."
+            )
+
             time.sleep(5)
         return [0]

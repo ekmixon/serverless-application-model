@@ -162,7 +162,7 @@ class TestSwaggerEditor_add_path(TestCase):
         self.assertFalse(self.editor.has_path(path, method))
         self.editor.add_path(path, method)
 
-        self.assertTrue(self.editor.has_path(path, method), "must add for " + case)
+        self.assertTrue(self.editor.has_path(path, method), f"must add for {case}")
         self.assertEqual(self.editor.swagger["paths"][path][method], {})
 
     def test_must_raise_non_dict_path_values(self):
@@ -388,7 +388,7 @@ class TestSwaggerEditor_add_cors(TestCase):
         options_method_response_allow_credentials = True
 
         default_allow_methods_value = "some default value"
-        default_allow_methods_value_with_quotes = "'{}'".format(default_allow_methods_value)
+        default_allow_methods_value_with_quotes = f"'{default_allow_methods_value}'"
         expected = {"some cors": "return value"}
         path = "/foo"
 
@@ -678,7 +678,10 @@ class TestSwaggerEditor_is_valid(TestCase):
         ]
     )
     def test_must_fail_for_invalid_values(self, data, case):
-        self.assertFalse(SwaggerEditor.is_valid(data), "Swagger dictionary with {} must not be valid".format(case))
+        self.assertFalse(
+            SwaggerEditor.is_valid(data),
+            f"Swagger dictionary with {case} must not be valid",
+        )
 
 
 class TestSwaggerEditor_add_models(TestCase):

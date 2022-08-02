@@ -31,7 +31,7 @@ class TestResourceReferences(BaseTest):
         # Grab outputs from the stack
         stack_outputs = self.get_stack_outputs()
         self.assertEqual(stack_outputs["AliasArn"], alias_arn)
-        self.assertEqual(stack_outputs["AliasInSub"], alias_arn + " Alias")
+        self.assertEqual(stack_outputs["AliasInSub"], f"{alias_arn} Alias")
         self.assertEqual(stack_outputs["VersionNumber"], version_number)
         self.assertEqual(stack_outputs["VersionArn"], version_arn)
 

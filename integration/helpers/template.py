@@ -34,9 +34,14 @@ def transform_template(sam_template_path, cfn_output_path):
         with open(cfn_output_path, "w") as f:
             f.write(cloud_formation_template_prettified)
 
-        print("Wrote transformed CloudFormation template to: " + cfn_output_path)
+        print(f"Wrote transformed CloudFormation template to: {cfn_output_path}")
     except InvalidDocumentException as e:
-        error_message = reduce(lambda message, error: message + " " + error.message, e.causes, e.message)
+        error_message = reduce(
+            lambda message, error: f"{message} {error.message}",
+            e.causes,
+            e.message,
+        )
+
         LOG.error(error_message)
         errors = map(lambda cause: cause.message, e.causes)
         LOG.error(errors)

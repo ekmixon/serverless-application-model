@@ -18,37 +18,40 @@ STATUS_EXPIRED = "EXPIRED"
 
 
 def mock_create_cloud_formation_template(ApplicationId=None, SemanticVersion=None):
-    message = {
+    return {
         "ApplicationId": ApplicationId,
         "SemanticVersion": SemanticVersion,
         "Status": STATUS_ACTIVE,
         "TemplateId": MOCK_TEMPLATE_ID,
         "TemplateUrl": MOCK_TEMPLATE_URL,
     }
-    return message
 
 
 def mock_get_application(ApplicationId=None, SemanticVersion=None):
-    message = {
+    return {
         "ApplicationId": ApplicationId,
         "Author": "AWS",
         "Description": "Application description",
         "Name": "application-name",
-        "ParameterDefinitions": [{"Name": "Parameter1", "ReferencedByResources": ["resource1"], "Type": "String"}],
+        "ParameterDefinitions": [
+            {
+                "Name": "Parameter1",
+                "ReferencedByResources": ["resource1"],
+                "Type": "String",
+            }
+        ],
         "SemanticVersion": SemanticVersion,
     }
-    return message
 
 
 def mock_get_cloud_formation_template(ApplicationId=None, TemplateId=None):
-    message = {
+    return {
         "ApplicationId": ApplicationId,
         "SemanticVersion": "1.0.0",
         "Status": STATUS_ACTIVE,
         "TemplateId": TemplateId,
         "TemplateUrl": MOCK_TEMPLATE_URL,
     }
-    return message
 
 
 def mock_get_region(self, service_name, region_name):

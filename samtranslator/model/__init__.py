@@ -216,14 +216,12 @@ class Resource(object):
         :returns: the resource dict for this Resource
         :rtype: dict
         """
-        resource_dict = {}
-
-        resource_dict["Type"] = self.resource_type
+        resource_dict = {"Type": self.resource_type}
 
         if self.depends_on:
             resource_dict["DependsOn"] = self.depends_on
 
-        resource_dict.update(self.resource_attributes)
+        resource_dict |= self.resource_attributes
 
         properties_dict = {}
         for name in self.property_types:
@@ -291,7 +289,7 @@ class Resource(object):
         """
 
         if attr not in self._supported_resource_attributes:
-            raise KeyError("Unsupported resource attribute specified: %s" % attr)
+            raise KeyError(f"Unsupported resource attribute specified: {attr}")
 
         self.resource_attributes[attr] = value
 
@@ -302,7 +300,7 @@ class Resource(object):
         :return: Value of the attribute, if set in the resource. None otherwise
         """
         if attr not in self.resource_attributes:
-            raise KeyError("%s is not in resource attributes" % attr)
+            raise KeyError(f"{attr} is not in resource attributes")
 
         return self.resource_attributes[attr]
 
@@ -329,7 +327,9 @@ class Resource(object):
         if attr_name in self.runtime_attrs:
             return self.runtime_attrs[attr_name](self)
         else:
-            raise NotImplementedError(attr_name + " attribute is not implemented for resource " + self.resource_type)
+            raise NotImplementedError(
+                f"{attr_name} attribute is not implemented for resource {self.resource_type}"
+            )
 
     def get_passthrough_resource_attributes(self):
         """
@@ -338,11 +338,11 @@ class Resource(object):
 
         :return: Dictionary of resource attributes.
         """
-        attributes = {}
-        for resource_attribute in self.get_pass_through_attributes():
-            if resource_attribute in self.resource_attributes:
-                attributes[resource_attribute] = self.resource_attributes.get(resource_attribute)
-        return attributes
+        return {
+            resource_attribute: self.resource_attributes.get(resource_attribute)
+            for resource_attribute in self.get_pass_through_attributes()
+            if resource_attribute in self.resource_attributes
+        }
 
 
 class ResourceMacro(Resource):
@@ -460,12 +460,13 @@ class SamResourceMacro(ResourceMacro):
             return parameter_value
         value = intrinsics_resolver.resolve_parameter_refs(parameter_value)
 
-        if not isinstance(value, string_types) and not isinstance(value, dict):
+        if isinstance(value, (string_types, dict)):
+            return value
+        else:
             raise InvalidResourceException(
                 self.logical_id,
-                "Could not resolve parameter for '{}' or parameter is not a String.".format(parameter_name),
+                f"Could not resolve parameter for '{parameter_name}' or parameter is not a String.",
             )
-        return value
 
 
 class ResourceTypeResolver(object):
@@ -503,10 +504,9 @@ class ResourceTypeResolver(object):
         """
         if not self.can_resolve(resource_dict):
             raise TypeError(
-                "Resource dict has missing or invalid value for key Type. Event Type is: {}.".format(
-                    resource_dict.get("Type")
-                )
+                f'Resource dict has missing or invalid value for key Type. Event Type is: {resource_dict.get("Type")}.'
             )
+
         if resource_dict["Type"] not in self.resource_types:
             raise TypeError("Invalid resource type {resource_type}".format(resource_type=resource_dict["Type"]))
         return self.resource_types[resource_dict["Type"]]

@@ -14,7 +14,7 @@ class CloudWatchEventSourceTests(TestCase):
         cloudwatch_event_source = CloudWatchEvent(self.logical_id)
         cfn = cloudwatch_event_source.to_cloudformation(function=self.func)
         target_id = cfn[0].Targets[0]["Id"]
-        self.assertEqual(target_id, "{}{}".format(self.logical_id, "LambdaTarget"))
+        self.assertEqual(target_id, f"{self.logical_id}LambdaTarget")
 
     def test_target_id_when_provided(self):
         cloudwatch_event_source = CloudWatchEvent(self.logical_id)

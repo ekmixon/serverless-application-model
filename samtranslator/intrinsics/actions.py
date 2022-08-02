@@ -100,10 +100,7 @@ class RefAction(Action):
         if not isinstance(param_name, string_types):
             return input_dict
 
-        if param_name in parameters:
-            return parameters[param_name]
-        else:
-            return input_dict
+        return parameters[param_name] if param_name in parameters else input_dict
 
     def resolve_resource_refs(self, input_dict, supported_resource_refs):
         """
@@ -131,10 +128,7 @@ class RefAction(Action):
             return input_dict
 
         resolved_value = supported_resource_refs.get(logical_id, property)
-        if not resolved_value:
-            return input_dict
-
-        return {self.intrinsic_name: resolved_value}
+        return {self.intrinsic_name: resolved_value} if resolved_value else input_dict
 
     def resolve_resource_id_refs(self, input_dict, supported_resource_id_refs):
         """
@@ -158,10 +152,7 @@ class RefAction(Action):
         logical_id = ref_value
 
         resolved_value = supported_resource_id_refs.get(logical_id)
-        if not resolved_value:
-            return input_dict
-
-        return {self.intrinsic_name: resolved_value}
+        return {self.intrinsic_name: resolved_value} if resolved_value else input_dict
 
 
 class SubAction(Action):
@@ -295,14 +286,11 @@ class SubAction(Action):
 
             logical_id = splits[0]
             resolved_value = supported_resource_id_refs.get(logical_id)
-            if not resolved_value:
-                # This ID/property combination is not in the supported references
-                return full_ref
-
-            # We found a LogicalId.Property combination that can be resolved. Construct the output by replacing
-            # the part of the reference string and not constructing a new ref. This allows us to support GetAtt-like
-            # syntax and retain other attributes. Ex: ${LogicalId.Property.Arn} => ${SomeOtherLogicalId.Arn}
-            return full_ref.replace(logical_id, resolved_value)
+            return (
+                full_ref.replace(logical_id, resolved_value)
+                if resolved_value
+                else full_ref
+            )
 
         return self._handle_sub_action(input_dict, do_replacement)
 
@@ -431,10 +419,11 @@ class GetAttAction(Action):
             raise InvalidDocumentException(
                 [
                     InvalidTemplateException(
-                        "Invalid GetAtt value {}. GetAtt expects an array with 2 strings.".format(value)
+                        f"Invalid GetAtt value {value}. GetAtt expects an array with 2 strings."
                     )
                 ]
             )
+
 
         # Value of GetAtt is an array. It can contain any number of elements, with first being the LogicalId of
         # resource and rest being the attributes. In a SAM template, a reference to a resource can be used in the
@@ -542,10 +531,11 @@ class FindInMapAction(Action):
             raise InvalidDocumentException(
                 [
                     InvalidTemplateException(
-                        "Invalid FindInMap value {}. FindInMap expects an array with 3 values.".format(value)
+                        f"Invalid FindInMap value {value}. FindInMap expects an array with 3 values."
                     )
                 ]
             )
+
 
         map_name = self.resolve_parameter_refs(value[0], parameters)
         top_level_key = self.resolve_parameter_refs(value[1], parameters)

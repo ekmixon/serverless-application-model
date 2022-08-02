@@ -58,13 +58,10 @@ class PullEventSource(ResourceMacro):
         if not function:
             raise TypeError("Missing required keyword argument: function")
 
-        resources = []
-
         lambda_eventsourcemapping = LambdaEventSourceMapping(
             self.logical_id, attributes=function.get_passthrough_resource_attributes()
         )
-        resources.append(lambda_eventsourcemapping)
-
+        resources = [lambda_eventsourcemapping]
         try:
             # Name will not be available for Alias resources
             function_name_or_arn = function.get_runtime_attr("name")
@@ -98,11 +95,9 @@ class PullEventSource(ResourceMacro):
 
         destination_config_policy = None
         if self.DestinationConfig:
-            # `Type` property is for sam to attach the right policies
-            destination_type = self.DestinationConfig.get("OnFailure").get("Type")
-
-            # SAM attaches the policies for SQS or SNS only if 'Type' is given
-            if destination_type:
+            if destination_type := self.DestinationConfig.get("OnFailure").get(
+                "Type"
+            ):
                 # delete this field as its used internally for SAM to determine the policy
                 del self.DestinationConfig["OnFailure"]["Type"]
                 # the values 'SQS' and 'SNS' are allowed. No intrinsics are allowed
@@ -144,18 +139,22 @@ class PullEventSource(ResourceMacro):
                 if role.Policies is None:
                     role.Policies = []
                 for policy in policy_statements:
-                    if policy not in role.Policies:
-                        if not policy.get("PolicyDocument") in [d["PolicyDocument"] for d in role.Policies]:
-                            role.Policies.append(policy)
+                    if policy not in role.Policies and policy.get(
+                        "PolicyDocument"
+                    ) not in [d["PolicyDocument"] for d in role.Policies]:
+                        role.Policies.append(policy)
         # add SQS or SNS policy only if role is present in kwargs
         if role is not None and destination_config_policy is not None and destination_config_policy:
             if role.Policies is None:
                 role.Policies = []
                 role.Policies.append(destination_config_policy)
-            if role.Policies and destination_config_policy not in role.Policies:
-                # do not add the  policy if the same policy document is already present
-                if not destination_config_policy.get("PolicyDocument") in [d["PolicyDocument"] for d in role.Policies]:
-                    role.Policies.append(destination_config_policy)
+            if (
+                role.Policies
+                and destination_config_policy not in role.Policies
+                and destination_config_policy.get("PolicyDocument")
+                not in [d["PolicyDocument"] for d in role.Policies]
+            ):
+                role.Policies.append(destination_config_policy)
 
 
 class Kinesis(PullEventSource):
@@ -220,7 +219,7 @@ class MQ(PullEventSource):
                 self.relative_id,
                 "No SourceAccessConfigurations for Amazon MQ event provided.",
             )
-        if not type(self.SourceAccessConfigurations) is list:
+        if type(self.SourceAccessConfigurations) is not list:
             raise InvalidEventException(
                 self.relative_id,
                 "Provided SourceAccessConfigurations cannot be parsed into a list.",

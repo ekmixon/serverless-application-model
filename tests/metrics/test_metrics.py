@@ -161,10 +161,8 @@ class TestCWMetricPublisher(TestCase):
         mock_cw_client = MagicMock()
         metric_publisher = CWMetricsPublisher(mock_cw_client)
         single_metric = MetricDatum(name, value, unit, dimensions)
-        metrics_list = []
         total_metrics = 45
-        for i in range(total_metrics):
-            metrics_list.append(single_metric)
+        metrics_list = [single_metric for _ in range(total_metrics)]
         metric_publisher.publish(namespace, metrics_list)
         call_args_list = mock_cw_client.put_metric_data.call_args_list
 

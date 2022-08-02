@@ -52,8 +52,7 @@ class ResourcePolicies(object):
         :yields namedtuple("data", "type"): Yields a named tuple containing the policy data and its type
         """
 
-        for policy_tuple in self.policies:
-            yield policy_tuple
+        yield from self.policies
 
     def __len__(self):
         return len(self.policies)

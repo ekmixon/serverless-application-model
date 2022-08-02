@@ -42,7 +42,7 @@ class TestSharedApiUsagePlan(TestCase):
         ]
     )
     def test_multiple_apis_with_conditions(self, api_conditions):
-        template_conditions = dict()
+        template_conditions = {}
         result = {}
         for api_condition in api_conditions:
             result = self.shared_usage_plan.get_combined_resource_attributes(

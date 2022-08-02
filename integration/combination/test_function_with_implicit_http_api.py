@@ -8,5 +8,5 @@ class TestFunctionWithImplicitHttpApi(BaseTest):
         stack_outputs = self.get_stack_outputs()
         base_url = stack_outputs["ApiUrl"]
         self.verify_get_request_response(base_url, 200)
-        self.verify_get_request_response(base_url + "something", 200)
-        self.verify_get_request_response(base_url + "another/endpoint", 200)
+        self.verify_get_request_response(f"{base_url}something", 200)
+        self.verify_get_request_response(f"{base_url}another/endpoint", 200)

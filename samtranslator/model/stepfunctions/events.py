@@ -93,14 +93,11 @@ class Schedule(EventSource):
         :returns: a list of vanilla CloudFormation Resources, to which this Schedule event expands
         :rtype: list
         """
-        resources = []
-
         permissions_boundary = kwargs.get("permissions_boundary")
 
         passthrough_resource_attributes = resource.get_passthrough_resource_attributes()
         events_rule = EventsRule(self.logical_id, attributes=passthrough_resource_attributes)
-        resources.append(events_rule)
-
+        resources = [events_rule]
         events_rule.ScheduleExpression = self.Schedule
         if self.Enabled is not None:
             events_rule.State = "ENABLED" if self.Enabled else "DISABLED"
@@ -130,9 +127,10 @@ class Schedule(EventSource):
         """
         target = {
             "Arn": resource.get_runtime_attr("arn"),
-            "Id": self.logical_id + "StepFunctionsTarget",
+            "Id": f"{self.logical_id}StepFunctionsTarget",
             "RoleArn": role.get_runtime_attr("arn"),
         }
+
         if self.Input is not None:
             target["Input"] = self.Input
 
@@ -167,8 +165,6 @@ class CloudWatchEvent(EventSource):
         :returns: a list of vanilla CloudFormation Resources, to which this CloudWatch Events/EventBridge event expands
         :rtype: list
         """
-        resources = []
-
         permissions_boundary = kwargs.get("permissions_boundary")
 
         passthrough_resource_attributes = resource.get_passthrough_resource_attributes()
@@ -176,8 +172,7 @@ class CloudWatchEvent(EventSource):
         events_rule.EventBusName = self.EventBusName
         events_rule.EventPattern = self.Pattern
 
-        resources.append(events_rule)
-
+        resources = [events_rule]
         role = self._construct_role(resource, permissions_boundary)
         resources.append(role)
 
@@ -202,9 +197,10 @@ class CloudWatchEvent(EventSource):
         """
         target = {
             "Arn": resource.get_runtime_attr("arn"),
-            "Id": self.logical_id + "StepFunctionsTarget",
+            "Id": f"{self.logical_id}StepFunctionsTarget",
             "RoleArn": role.get_runtime_attr("arn"),
         }
+
         if self.Input is not None:
             target["Input"] = self.Input
 
@@ -262,26 +258,25 @@ class Api(EventSource):
         if isinstance(rest_api_id, string_types):
 
             if (
-                rest_api_id in resources
-                and "Properties" in resources[rest_api_id]
-                and "StageName" in resources[rest_api_id]["Properties"]
+                rest_api_id not in resources
+                or "Properties" not in resources[rest_api_id]
+                or "StageName" not in resources[rest_api_id]["Properties"]
             ):
-
-                explicit_api = resources[rest_api_id]["Properties"]
-                permitted_stage = explicit_api["StageName"]
-
-                # Stage could be a intrinsic, in which case leave the suffix to default value
-                if isinstance(permitted_stage, string_types):
-                    stage_suffix = permitted_stage
-                else:
-                    stage_suffix = "Stage"
-
-            else:
                 # RestApiId is a string, not an intrinsic, but we did not find a valid API resource for this ID
                 raise InvalidEventException(
                     self.relative_id,
                     "RestApiId property of Api event must reference a valid resource in the same template.",
                 )
+
+            explicit_api = resources[rest_api_id]["Properties"]
+            permitted_stage = explicit_api["StageName"]
+
+                # Stage could be a intrinsic, in which case leave the suffix to default value
+            stage_suffix = (
+                permitted_stage
+                if isinstance(permitted_stage, string_types)
+                else "Stage"
+            )
 
         return {"explicit_api": explicit_api, "explicit_api_stage": {"suffix": stage_suffix}}
 
@@ -299,8 +294,6 @@ class Api(EventSource):
         :returns: a list of vanilla CloudFormation Resources, to which this Api event expands
         :rtype: list
         """
-        resources = []
-
         intrinsics_resolver = kwargs.get("intrinsics_resolver")
         permissions_boundary = kwargs.get("permissions_boundary")
 
@@ -309,8 +302,7 @@ class Api(EventSource):
             self.Method = self.Method.lower()
 
         role = self._construct_role(resource, permissions_boundary)
-        resources.append(role)
-
+        resources = [role]
         explicit_api = kwargs["explicit_api"]
         if explicit_api.get("__MANAGE_SWAGGER"):
             self._add_swagger_integration(explicit_api, resource, role, intrinsics_resolver)
@@ -381,15 +373,16 @@ class Api(EventSource):
                             ),
                         )
 
-                    if method_authorizer == "NONE":
-                        if not api_auth or not api_auth.get("DefaultAuthorizer"):
-                            raise InvalidEventException(
-                                self.relative_id,
-                                "Unable to set Authorizer on API method [{method}] for path [{path}] because 'NONE' "
-                                "is only a valid value when a DefaultAuthorizer on the API is specified.".format(
-                                    method=self.Method, path=self.Path
-                                ),
-                            )
+                    if method_authorizer == "NONE" and (
+                        not api_auth or not api_auth.get("DefaultAuthorizer")
+                    ):
+                        raise InvalidEventException(
+                            self.relative_id,
+                            "Unable to set Authorizer on API method [{method}] for path [{path}] because 'NONE' "
+                            "is only a valid value when a DefaultAuthorizer on the API is specified.".format(
+                                method=self.Method, path=self.Path
+                            ),
+                        )
 
             if self.Auth.get("AuthorizationScopes") and not isinstance(self.Auth.get("AuthorizationScopes"), list):
                 raise InvalidEventException(
@@ -432,7 +425,7 @@ class Api(EventSource):
         :returns: a body mapping request which passes the Api input to the state machine execution
         :rtype: dict
         """
-        request_templates = {
+        return {
             "application/json": fnSub(
                 json.dumps(
                     {
@@ -442,4 +435,3 @@ class Api(EventSource):
                 )
             )
         }
-        return request_templates

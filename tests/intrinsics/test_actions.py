@@ -458,10 +458,11 @@ class TestSubCanResolveResourceRefs(TestCase):
 
 class TestSubCanResolveResourceIdRefs(TestCase):
     def setUp(self):
-        self.supported_resource_id_refs = {}
-        self.supported_resource_id_refs["id1"] = "newid1"
-        self.supported_resource_id_refs["id2"] = "newid2"
-        self.supported_resource_id_refs["id3"] = "newid3"
+        self.supported_resource_id_refs = {
+            "id1": "newid1",
+            "id2": "newid2",
+            "id3": "newid3",
+        }
 
         self.input_sub_value = (
             "Hello ${id1} ${id2}${id3} ${id1.arn} ${id2.arn.name.foo} ${!id1.prop1} ${unknown} ${some.arn} World"
@@ -650,8 +651,7 @@ class TestGetAttCanResolveResourceRefs(TestCase):
 
 class TestGetAttCanResolveResourceIdRefs(TestCase):
     def setUp(self):
-        self.supported_resource_id_refs = {}
-        self.supported_resource_id_refs["id1"] = "value1"
+        self.supported_resource_id_refs = {"id1": "value1"}
 
     def test_must_resolve_simple_refs(self):
         input = {"Fn::GetAtt": ["id1", "Arn"]}

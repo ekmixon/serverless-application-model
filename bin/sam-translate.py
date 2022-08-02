@@ -18,6 +18,7 @@ Options:
   --verbose                 Enables verbose logging
 
 """
+
 import json
 import logging
 import os
@@ -29,7 +30,7 @@ import boto3
 from docopt import docopt
 
 my_path = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, my_path + "/..")
+sys.path.insert(0, f"{my_path}/..")
 
 from samtranslator.public.translator import ManagedPolicyLoader
 from samtranslator.translator.transform import transform
@@ -75,7 +76,7 @@ def get_input_output_file_paths():
 
 def package(input_file_path, output_file_path):
     template_file = input_file_path
-    package_output_template_file = input_file_path + "._sam_packaged_.yaml"
+    package_output_template_file = f"{input_file_path}._sam_packaged_.yaml"
     s3_bucket = cli_options.get("--s3-bucket")
     args = [
         "--template-file",
@@ -110,9 +111,14 @@ def transform_template(input_file_path, output_file_path):
         with open(output_file_path, "w") as f:
             f.write(cloud_formation_template_prettified)
 
-        print("Wrote transformed CloudFormation template to: " + output_file_path)
+        print(f"Wrote transformed CloudFormation template to: {output_file_path}")
     except InvalidDocumentException as e:
-        errorMessage = reduce(lambda message, error: message + " " + error.message, e.causes, e.message)
+        errorMessage = reduce(
+            lambda message, error: f"{message} {error.message}",
+            e.causes,
+            e.message,
+        )
+
         LOG.error(errorMessage)
         errors = map(lambda cause: cause.message, e.causes)
         LOG.error(errors)

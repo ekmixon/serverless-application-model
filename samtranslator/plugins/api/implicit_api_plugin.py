@@ -96,7 +96,7 @@ class ImplicitApiPlugin(BasePlugin):
         self._maybe_add_conditions_to_implicit_api_paths(template)
         self._maybe_remove_implicit_api(template)
 
-        if len(errors) > 0:
+        if errors:
             raise InvalidDocumentException(errors)
 
     def _get_api_events(self, resource):
@@ -113,21 +113,21 @@ class ImplicitApiPlugin(BasePlugin):
             }
         """
 
-        if not (
-            resource.valid()
-            and isinstance(resource.properties, dict)
-            and isinstance(resource.properties.get("Events"), dict)
-        ):
-            # Resource structure is invalid.
-            return {}
-
-        api_events = {}
-        for event_id, event in resource.properties["Events"].items():
-
-            if event and isinstance(event, dict) and event.get("Type") == self.api_event_type:
-                api_events[event_id] = event
-
-        return api_events
+        return (
+            {
+                event_id: event
+                for event_id, event in resource.properties["Events"].items()
+                if event
+                and isinstance(event, dict)
+                and event.get("Type") == self.api_event_type
+            }
+            if (
+                resource.valid()
+                and isinstance(resource.properties, dict)
+                and isinstance(resource.properties.get("Events"), dict)
+            )
+            else {}
+        )
 
     def _process_api_events(
         self, resource, api_events, template, condition=None, deletion_policy=None, update_replace_policy=None
@@ -234,13 +234,12 @@ class ImplicitApiPlugin(BasePlugin):
         # Add a condition to the API resource IFF all of its resource+methods are associated with serverless functions
         # containing conditions.
         implicit_api_conditions = self.api_conditions[self.implicit_api_logical_id]
-        all_resource_method_conditions = set(
-            [
-                condition
-                for path, method_conditions in implicit_api_conditions.items()
-                for method, condition in method_conditions.items()
-            ]
-        )
+        all_resource_method_conditions = {
+            condition
+            for path, method_conditions in implicit_api_conditions.items()
+            for method, condition in method_conditions.items()
+        }
+
         at_least_one_resource_method = len(all_resource_method_conditions) > 0
         all_resource_methods_contain_conditions = None not in all_resource_method_conditions
         if at_least_one_resource_method and all_resource_methods_contain_conditions:
@@ -278,10 +277,10 @@ class ImplicitApiPlugin(BasePlugin):
         for iterated_policy in implicit_api_deletion_policies:
             if iterated_policy:
                 one_resource_method_contains_deletion_policy = True
-                if iterated_policy == "Retain":
-                    contains_retain = True
                 if iterated_policy == "Delete":
                     contains_delete = True
+                elif iterated_policy == "Retain":
+                    contains_retain = True
         if at_least_one_resource_method and one_resource_method_contains_deletion_policy:
             implicit_api_resource = template_dict.get("Resources").get(self.implicit_api_logical_id)
             if contains_retain:
@@ -311,12 +310,12 @@ class ImplicitApiPlugin(BasePlugin):
         for iterated_policy in implicit_api_update_replace_policies:
             if iterated_policy:
                 one_resource_method_contains_update_replace_policy = True
-                if iterated_policy == "Retain":
-                    contains_retain = True
-                if iterated_policy == "Snapshot":
-                    contains_snapshot = True
                 if iterated_policy == "Delete":
                     contains_delete = True
+                elif iterated_policy == "Retain":
+                    contains_retain = True
+                elif iterated_policy == "Snapshot":
+                    contains_snapshot = True
         if at_least_one_resource_method and one_resource_method_contains_update_replace_policy:
             implicit_api_resource = template_dict.get("Resources").get(self.implicit_api_logical_id)
             if contains_retain:
@@ -364,9 +363,13 @@ class ImplicitApiPlugin(BasePlugin):
             editor = self.editor(swagger)
 
             for path in editor.iter_on_path():
-                all_method_conditions = set(
-                    [condition for method, condition in self.api_conditions[api_id][path].items()]
-                )
+                all_method_conditions = {
+                    condition
+                    for method, condition in self.api_conditions[api_id][
+                        path
+                    ].items()
+                }
+
                 at_least_one_method = len(all_method_conditions) > 0
                 all_methods_contain_conditions = None not in all_method_conditions
                 if at_least_one_method and all_methods_contain_conditions:
@@ -398,7 +401,7 @@ class ImplicitApiPlugin(BasePlugin):
         # slashes and curly braces for templated params, e.g., /foo/{customerId}. So we'll replace
         # non-alphanumeric characters.
         path_logical_id = path.replace("/", "SLASH").replace("{", "OB").replace("}", "CB")
-        return "{}{}PathCondition".format(api_id, path_logical_id)
+        return f"{api_id}{path_logical_id}PathCondition"
 
     def _maybe_remove_implicit_api(self, template):
         """

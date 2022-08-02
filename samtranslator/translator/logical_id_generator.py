@@ -18,10 +18,7 @@ class LogicalIdGenerator(object):
         :param data_obj: Data object to trigger new changes on. If set to None, this is ignored
         """
 
-        data_str = ""
-        if data_obj:
-            data_str = self._stringify(data_obj)
-
+        data_str = self._stringify(data_obj) if data_obj else ""
         self._prefix = prefix
         self.data_str = data_str
         self.data_hash = data_hash
@@ -63,14 +60,12 @@ class LogicalIdGenerator(object):
             return data_hash
 
         encoded_data_str = self.data_str
-        if sys.version_info.major == 2:
-            # In Py2, only unicode needs to be encoded.
-            if isinstance(self.data_str, unicode):
-                encoded_data_str = self.data_str.encode("utf-8")
-        else:
-            # data_str should always be unicode on python 3
+        if (
+            sys.version_info.major == 2
+            and isinstance(self.data_str, unicode)
+            or sys.version_info.major != 2
+        ):
             encoded_data_str = self.data_str.encode("utf-8")
-
         data_hash = hashlib.sha1(encoded_data_str).hexdigest()
 
         return data_hash[:length]

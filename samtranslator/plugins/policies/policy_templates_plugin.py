@@ -86,11 +86,13 @@ class PolicyTemplatesForResourcePlugin(BasePlugin):
             else self._process_policy_template(logical_id, else_statement)
         )
 
-        processed_intrinsic_if = {
-            "Fn::If": [policy_entry.data["Fn::If"][0], processed_then_statement, processed_else_statement]
+        return {
+            "Fn::If": [
+                policy_entry.data["Fn::If"][0],
+                processed_then_statement,
+                processed_else_statement,
+            ]
         }
-
-        return processed_intrinsic_if
 
     def _process_policy_template(self, logical_id, template_data):
 
@@ -108,7 +110,8 @@ class PolicyTemplatesForResourcePlugin(BasePlugin):
             raise InvalidResourceException(logical_id, str(ex))
         except InvalidParameterValues:
             raise InvalidResourceException(
-                logical_id, "Must specify valid parameter values for policy template '{}'".format(template_name)
+                logical_id,
+                f"Must specify valid parameter values for policy template '{template_name}'",
             )
 
     def _is_supported(self, resource_type):

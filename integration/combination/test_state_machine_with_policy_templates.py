@@ -25,8 +25,9 @@ class TestStateMachineWithPolicyTemplates(BaseTest):
         actual_queue_arn = sqs_policy_statement["Resource"]
         self.assertTrue(
             actual_queue_arn.endswith(expected_queue_name),
-            "Queue Arn " + actual_queue_arn + " must end with suffix " + expected_queue_name,
+            f"Queue Arn {actual_queue_arn} must end with suffix {expected_queue_name}",
         )
+
 
         # Verify the contents of second policy
         lambda_invoke_policy = get_policy_statements(
@@ -39,9 +40,9 @@ class TestStateMachineWithPolicyTemplates(BaseTest):
 
         function_name = self.get_physical_id_by_type("AWS::Lambda::Function")
         #  NOTE: The resource ARN has "*" suffix to allow for any Lambda function version as well
-        expected_function_suffix = "function:" + function_name + "*"
+        expected_function_suffix = f"function:{function_name}*"
         actual_function_arn = lambda_policy_statement["Resource"]
         self.assertTrue(
             actual_function_arn.endswith(expected_function_suffix),
-            "Function ARN " + actual_function_arn + " must end with suffix " + expected_function_suffix,
+            f"Function ARN {actual_function_arn} must end with suffix {expected_function_suffix}",
         )

@@ -27,10 +27,6 @@ class SamTemplateValidator(object):
         except ValidationError as ex:
             # Stringifying the exception will give us useful error message
             validation_errors = str(ex)
-            # Swallowing expected exception here as our caller is expecting validation errors and
-            # not the valiation exception itself
-            pass
-
         return validation_errors
 
     @staticmethod

@@ -98,12 +98,11 @@ def translate_and_find_deployment_ids(manifest):
     output_fragment = transform(manifest, parameter_values, mock_policy_loader)
     print(json.dumps(output_fragment, indent=2))
 
-    deployment_ids = set()
-    for key, value in output_fragment["Resources"].items():
-        if value["Type"] == "AWS::ApiGateway::Deployment":
-            deployment_ids.add(key)
-
-    return deployment_ids
+    return {
+        key
+        for key, value in output_fragment["Resources"].items()
+        if value["Type"] == "AWS::ApiGateway::Deployment"
+    }
 
 
 class TestApiGatewayDeploymentResource(TestCase):
@@ -122,7 +121,7 @@ class TestApiGatewayDeploymentResource(TestCase):
         deployment.make_auto_deployable(stage, swagger=swagger)
 
         self.assertEqual(deployment.logical_id, id_val)
-        self.assertEqual(deployment.Description, "RestApi deployment id: {}".format(full_hash))
+        self.assertEqual(deployment.Description, f"RestApi deployment id: {full_hash}")
 
         LogicalIdGeneratorMock.assert_called_once_with(prefix, str(swagger))
         generator_mock.gen.assert_called_once_with()

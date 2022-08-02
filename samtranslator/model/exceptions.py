@@ -11,9 +11,7 @@ class InvalidDocumentException(Exception):
 
     @property
     def message(self):
-        return "Invalid Serverless Application Specification document. Number of errors found: {}.".format(
-            len(self.causes)
-        )
+        return f"Invalid Serverless Application Specification document. Number of errors found: {len(self.causes)}."
 
     @property
     def causes(self):
@@ -54,7 +52,7 @@ class InvalidTemplateException(Exception):
 
     @property
     def message(self):
-        return "Structure of the SAM template is invalid. {}".format(self._message)
+        return f"Structure of the SAM template is invalid. {self._message}"
 
 
 class InvalidResourceException(Exception):
@@ -73,7 +71,7 @@ class InvalidResourceException(Exception):
 
     @property
     def message(self):
-        return "Resource with id [{}] is invalid. {}".format(self._logical_id, self._message)
+        return f"Resource with id [{self._logical_id}] is invalid. {self._message}"
 
 
 class InvalidEventException(Exception):
@@ -89,7 +87,7 @@ class InvalidEventException(Exception):
 
     @property
     def message(self):
-        return "Event with id [{}] is invalid. {}".format(self._event_id, self._message)
+        return f"Event with id [{self._event_id}] is invalid. {self._message}"
 
 
 def prepend(exception, message, end=": "):

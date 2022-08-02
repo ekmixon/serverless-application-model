@@ -40,10 +40,12 @@ class TestVersionsAndAliases(TestCase):
 
         sam_func = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-        kwargs = {}
-        kwargs["managed_policy_map"] = {"a": "b"}
-        kwargs["event_resources"] = []
-        kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
+        kwargs = {
+            "managed_policy_map": {"a": "b"},
+            "event_resources": [],
+            "intrinsics_resolver": self.intrinsics_resolver_mock,
+        }
+
         self.intrinsics_resolver_mock.resolve_parameter_refs.return_value = {
             "S3Bucket": "bucket",
             "S3Key": "key",
@@ -72,10 +74,12 @@ class TestVersionsAndAliases(TestCase):
 
         sam_func = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-        kwargs = {}
-        kwargs["managed_policy_map"] = {"a": "b"}
-        kwargs["event_resources"] = []
-        kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
+        kwargs = {
+            "managed_policy_map": {"a": "b"},
+            "event_resources": [],
+            "intrinsics_resolver": self.intrinsics_resolver_mock,
+        }
+
         self.intrinsics_resolver_mock.resolve_parameter_refs.return_value = {
             "S3Bucket": "bucket",
             "S3Key": "key",
@@ -127,11 +131,13 @@ class TestVersionsAndAliases(TestCase):
 
         sam_func = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-        kwargs = dict()
-        kwargs["managed_policy_map"] = {"a": "b"}
-        kwargs["event_resources"] = []
-        kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
-        kwargs["mappings_resolver"] = self.mappings_resolver_mock
+        kwargs = {
+            "managed_policy_map": {"a": "b"},
+            "event_resources": [],
+            "intrinsics_resolver": self.intrinsics_resolver_mock,
+            "mappings_resolver": self.mappings_resolver_mock,
+        }
+
         deployment_preference_collection = self._make_deployment_preference_collection()
         kwargs["deployment_preference_collection"] = deployment_preference_collection
         get_resolved_alias_name_mock.return_value = alias_name
@@ -170,11 +176,13 @@ class TestVersionsAndAliases(TestCase):
 
         sam_func = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-        kwargs = dict()
-        kwargs["managed_policy_map"] = {"a": "b"}
-        kwargs["event_resources"] = []
-        kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
-        kwargs["mappings_resolver"] = self.mappings_resolver_mock
+        kwargs = {
+            "managed_policy_map": {"a": "b"},
+            "event_resources": [],
+            "intrinsics_resolver": self.intrinsics_resolver_mock,
+            "mappings_resolver": self.mappings_resolver_mock,
+        }
+
         self.intrinsics_resolver_mock.resolve_parameter_refs.return_value = {
             "S3Bucket": "bucket",
             "S3Key": "key",
@@ -206,11 +214,13 @@ class TestVersionsAndAliases(TestCase):
 
         sam_func = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-        kwargs = dict()
-        kwargs["managed_policy_map"] = {"a": "b"}
-        kwargs["event_resources"] = []
-        kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
-        kwargs["mappings_resolver"] = self.mappings_resolver_mock
+        kwargs = {
+            "managed_policy_map": {"a": "b"},
+            "event_resources": [],
+            "intrinsics_resolver": self.intrinsics_resolver_mock,
+            "mappings_resolver": self.mappings_resolver_mock,
+        }
+
         preference_collection = self._make_deployment_preference_collection()
         preference_collection.get.return_value = DeploymentPreference.from_dict(
             sam_func.logical_id, deploy_preference_dict
@@ -243,10 +253,12 @@ class TestVersionsAndAliases(TestCase):
 
             sam_func = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-            kwargs = dict()
-            kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
-            kwargs["mappings_resolver"] = self.mappings_resolver_mock
-            kwargs["deployment_preference_collection"] = self._make_deployment_preference_collection()
+            kwargs = {
+                "intrinsics_resolver": self.intrinsics_resolver_mock,
+                "mappings_resolver": self.mappings_resolver_mock,
+                "deployment_preference_collection": self._make_deployment_preference_collection(),
+            }
+
             sam_func.to_cloudformation(**kwargs)
 
     @patch("boto3.session.Session.region_name", "ap-southeast-1")
@@ -265,11 +277,12 @@ class TestVersionsAndAliases(TestCase):
 
         sam_func = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-        kwargs = dict()
-        kwargs["managed_policy_map"] = {"a": "b"}
-        kwargs["event_resources"] = []
-        kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
-        kwargs["mappings_resolver"] = self.mappings_resolver_mock
+        kwargs = {
+            "managed_policy_map": {"a": "b"},
+            "event_resources": [],
+            "intrinsics_resolver": self.intrinsics_resolver_mock,
+            "mappings_resolver": self.mappings_resolver_mock,
+        }
 
         preference_collection = self._make_deployment_preference_collection()
         preference_collection.get.return_value = DeploymentPreference.from_dict(
@@ -305,11 +318,13 @@ class TestVersionsAndAliases(TestCase):
 
         sam = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-        kwargs = dict()
-        kwargs["managed_policy_map"] = {"a": "b"}
-        kwargs["event_resources"] = []
-        kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
-        kwargs["mappings_resolver"] = self.mappings_resolver_mock
+        kwargs = {
+            "managed_policy_map": {"a": "b"},
+            "event_resources": [],
+            "intrinsics_resolver": self.intrinsics_resolver_mock,
+            "mappings_resolver": self.mappings_resolver_mock,
+        }
+
         deployment_preference_collection = self._make_deployment_preference_collection()
         kwargs["deployment_preference_collection"] = deployment_preference_collection
         self.intrinsics_resolver_mock.resolve_parameter_refs.return_value = True
@@ -347,11 +362,13 @@ class TestVersionsAndAliases(TestCase):
 
         sam_func = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-        kwargs = dict()
-        kwargs["managed_policy_map"] = {"a": "b"}
-        kwargs["event_resources"] = []
-        kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
-        kwargs["mappings_resolver"] = self.mappings_resolver_mock
+        kwargs = {
+            "managed_policy_map": {"a": "b"},
+            "event_resources": [],
+            "intrinsics_resolver": self.intrinsics_resolver_mock,
+            "mappings_resolver": self.mappings_resolver_mock,
+        }
+
         deployment_preference_collection = self._make_deployment_preference_collection()
         kwargs["deployment_preference_collection"] = deployment_preference_collection
         self.intrinsics_resolver_mock.resolve_parameter_refs.return_value = {"MyEnabledFlag": True}
@@ -381,11 +398,13 @@ class TestVersionsAndAliases(TestCase):
 
         sam_func = SamFunction.from_dict(logical_id="foo", resource_dict=func)
 
-        kwargs = dict()
-        kwargs["managed_policy_map"] = {"a": "b"}
-        kwargs["event_resources"] = []
-        kwargs["intrinsics_resolver"] = self.intrinsics_resolver_mock
-        kwargs["mappings_resolver"] = self.mappings_resolver_mock
+        kwargs = {
+            "managed_policy_map": {"a": "b"},
+            "event_resources": [],
+            "intrinsics_resolver": self.intrinsics_resolver_mock,
+            "mappings_resolver": self.mappings_resolver_mock,
+        }
+
         deployment_preference_collection = self._make_deployment_preference_collection()
         kwargs["deployment_preference_collection"] = deployment_preference_collection
         self.intrinsics_resolver_mock.resolve_parameter_refs.return_value = {"MyEnabledFlag": True}
@@ -409,7 +428,7 @@ class TestVersionsAndAliases(TestCase):
         self.assertEqual(version.FunctionName, {"Ref": self.lambda_func.logical_id})
         self.assertEqual(version.get_resource_attribute("DeletionPolicy"), "Retain")
 
-        expected_prefix = self.sam_func.logical_id + "Version"
+        expected_prefix = f"{self.sam_func.logical_id}Version"
         LogicalIdGeneratorMock.assert_called_once_with(expected_prefix, self.lambda_func.Code, None)
         generator_mock.gen.assert_called_once_with()
         self.intrinsics_resolver_mock.resolve_parameter_refs.assert_called_once_with(self.lambda_func.Code)
@@ -419,7 +438,7 @@ class TestVersionsAndAliases(TestCase):
         generator_mock = LogicalIdGeneratorMock.return_value
         prefix = "SomeLogicalId"
         hash_code = "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
-        id_val = "{}{}".format(prefix, hash_code[:10])
+        id_val = f"{prefix}{hash_code[:10]}"
         generator_mock.gen.return_value = id_val
 
         self.intrinsics_resolver_mock.resolve_parameter_refs.return_value = self.lambda_func.Code
@@ -431,7 +450,7 @@ class TestVersionsAndAliases(TestCase):
         self.assertEqual(version.FunctionName, {"Ref": self.lambda_func.logical_id})
         self.assertEqual(version.get_resource_attribute("DeletionPolicy"), "Retain")
 
-        expected_prefix = self.sam_func.logical_id + "Version"
+        expected_prefix = f"{self.sam_func.logical_id}Version"
         LogicalIdGeneratorMock.assert_called_once_with(expected_prefix, self.lambda_func.Code, hash_code)
         generator_mock.gen.assert_called_once_with()
         self.intrinsics_resolver_mock.resolve_parameter_refs.assert_called_once_with(self.lambda_func.Code)
@@ -449,7 +468,7 @@ class TestVersionsAndAliases(TestCase):
 
         self.assertEqual(version.logical_id, id_val)
 
-        expected_prefix = self.sam_func.logical_id + "Version"
+        expected_prefix = f"{self.sam_func.logical_id}Version"
         LogicalIdGeneratorMock.assert_called_once_with(expected_prefix, self.lambda_func.Code, None)
         generator_mock.gen.assert_called_once_with()
         self.intrinsics_resolver_mock.resolve_parameter_refs.assert_called_once_with(self.lambda_func.Code)
@@ -473,7 +492,7 @@ class TestVersionsAndAliases(TestCase):
         version = self.sam_func._construct_version(self.lambda_func, self.intrinsics_resolver_mock)
         self.assertEqual(version.logical_id, id_val)
 
-        expected_prefix = self.sam_func.logical_id + "Version"
+        expected_prefix = f"{self.sam_func.logical_id}Version"
         LogicalIdGeneratorMock.assert_called_once_with(expected_prefix, self.lambda_func.Code, None)
         self.intrinsics_resolver_mock.resolve_parameter_refs.assert_called_once_with(self.lambda_func.Code)
 
@@ -489,7 +508,7 @@ class TestVersionsAndAliases(TestCase):
         version = self.sam_func._construct_version(self.lambda_func, self.intrinsics_resolver_mock)
         self.assertEqual(version.logical_id, id_val)
 
-        expected_prefix = self.sam_func.logical_id + "Version"
+        expected_prefix = f"{self.sam_func.logical_id}Version"
         LogicalIdGeneratorMock.assert_called_once_with(expected_prefix, self.lambda_func.Code, None)
         self.intrinsics_resolver_mock.resolve_parameter_refs.assert_called_once_with(self.lambda_func.Code)
 
@@ -505,7 +524,7 @@ class TestVersionsAndAliases(TestCase):
         version = self.sam_func._construct_version(self.lambda_func, self.intrinsics_resolver_mock)
         self.assertEqual(version.logical_id, id_val)
 
-        expected_prefix = self.sam_func.logical_id + "Version"
+        expected_prefix = f"{self.sam_func.logical_id}Version"
         LogicalIdGeneratorMock.assert_called_once_with(expected_prefix, self.lambda_func.Code, None)
         self.intrinsics_resolver_mock.resolve_parameter_refs.assert_called_once_with(self.lambda_func.Code)
 
@@ -514,7 +533,7 @@ class TestVersionsAndAliases(TestCase):
         generator_mock = LogicalIdGeneratorMock.return_value
         id_val = "SomeLogicalId"
         generator_mock.gen.return_value = id_val
-        prefix = self.sam_func.logical_id + "Version"
+        prefix = f"{self.sam_func.logical_id}Version"
 
         # Test that logicalId changes with changes to CodeSha
         self.intrinsics_resolver_mock.resolve_parameter_refs.return_value = self.lambda_func.Code
@@ -536,7 +555,7 @@ class TestVersionsAndAliases(TestCase):
         generator_mock = LogicalIdGeneratorMock.return_value
         id_val = "SomeLogicalId"
         generator_mock.gen.return_value = id_val
-        prefix = self.sam_func.logical_id + "Version"
+        prefix = f"{self.sam_func.logical_id}Version"
 
         self.lambda_func.Code = {"S3Bucket": "bucket", "S3Key": {"Ref": "someparam"}}
 
@@ -558,7 +577,7 @@ class TestVersionsAndAliases(TestCase):
 
         alias = self.sam_func._construct_alias(name, self.lambda_func, self.lambda_version)
 
-        expected_logical_id = "%sAlias%s" % (self.lambda_func.logical_id, name)
+        expected_logical_id = f"{self.lambda_func.logical_id}Alias{name}"
         self.assertEqual(alias.logical_id, expected_logical_id)
         self.assertEqual(alias.Name, name)
         self.assertEqual(alias.FunctionName, {"Ref": self.lambda_func.logical_id})
@@ -581,11 +600,8 @@ class TestVersionsAndAliases(TestCase):
     def test_get_resolved_alias_name_must_error_if_intrinsics_are_not_resolved(self):
 
         property_name = "something"
-        expected_exception_msg = (
-            "Resource with id [{}] is invalid. '{}' must be a string or a Ref to a template parameter".format(
-                self.sam_func.logical_id, property_name
-            )
-        )
+        expected_exception_msg = f"Resource with id [{self.sam_func.logical_id}] is invalid. '{property_name}' must be a string or a Ref to a template parameter"
+
 
         alias_value = {"Ref": "param1"}
         # Unresolved
@@ -600,11 +616,8 @@ class TestVersionsAndAliases(TestCase):
     def test_get_resolved_alias_name_must_error_if_intrinsics_are_not_resolved_with_list(self):
 
         property_name = "something"
-        expected_exception_msg = (
-            "Resource with id [{}] is invalid. '{}' must be a string or a Ref to a template parameter".format(
-                self.sam_func.logical_id, property_name
-            )
-        )
+        expected_exception_msg = f"Resource with id [{self.sam_func.logical_id}] is invalid. '{property_name}' must be a string or a Ref to a template parameter"
+
 
         alias_value = ["Ref", "param1"]
         # Unresolved

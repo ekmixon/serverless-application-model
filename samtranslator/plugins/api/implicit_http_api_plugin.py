@@ -80,12 +80,18 @@ class ImplicitHttpApiPlugin(ImplicitApiPlugin):
                 event_properties["Path"] = path
                 event_properties["Method"] = method
             elif not path or not method:
-                key = "Path" if not path else "Method"
-                raise InvalidEventException(logicalId, "Event is missing key '{}'.".format(key))
+                key = "Method" if path else "Path"
+                raise InvalidEventException(logicalId, f"Event is missing key '{key}'.")
 
-            if not isinstance(path, six.string_types) or not isinstance(method, six.string_types):
-                key = "Path" if not isinstance(path, six.string_types) else "Method"
-                raise InvalidEventException(logicalId, "Api Event must have a String specified for '{}'.".format(key))
+            if not isinstance(path, six.string_types) or not isinstance(
+                method, six.string_types
+            ):
+                key = "Method" if isinstance(path, six.string_types) else "Path"
+                raise InvalidEventException(
+                    logicalId,
+                    f"Api Event must have a String specified for '{key}'.",
+                )
+
 
             # !Ref is resolved by this time. If it is still a dict, we can't parse/use this Api.
             if isinstance(api_id, dict):
@@ -156,7 +162,7 @@ class ImplicitHttpApiPlugin(ImplicitApiPlugin):
         method = event_properties["Method"]
 
         # Route should be in format "METHOD /path" or just "/path" if the ANY method is used
-        route = "{} {}".format(method.upper(), path)
+        route = f"{method.upper()} {path}"
         if method == OpenApiEditor._X_ANY_METHOD:
             route = path
 

@@ -181,7 +181,7 @@ class TestGlobalPropertiesMerge(TestCase):
 
         configuration = getattr(GlobalPropertiesTestCases, testcase)
         if not configuration:
-            raise Exception("Invalid configuration for test case " + testcase)
+            raise Exception(f"Invalid configuration for test case {testcase}")
 
         global_properties = GlobalProperties(configuration["global"])
         actual = global_properties.merge(configuration["local"])

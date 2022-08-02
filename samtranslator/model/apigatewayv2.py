@@ -100,9 +100,7 @@ class ApiGatewayV2Authorizer(object):
             self._validate_lambda_authorizer()
 
     def _get_auth_type(self):
-        if self.jwt_configuration:
-            return "JWT"
-        return "REQUEST"
+        return "JWT" if self.jwt_configuration else "REQUEST"
 
     def _validate_input_parameters(self):
         authorizer_type = self._get_auth_type()
@@ -110,40 +108,46 @@ class ApiGatewayV2Authorizer(object):
         if self.authorization_scopes is not None and not isinstance(self.authorization_scopes, list):
             raise InvalidResourceException(self.api_logical_id, "AuthorizationScopes must be a list.")
 
-        if self.authorization_scopes is not None and not authorizer_type == "JWT":
+        if self.authorization_scopes is not None and authorizer_type != "JWT":
             raise InvalidResourceException(
                 self.api_logical_id, "AuthorizationScopes must be defined only for OAuth2 Authorizer."
             )
 
-        if self.jwt_configuration is not None and not authorizer_type == "JWT":
+        if self.jwt_configuration is not None and authorizer_type != "JWT":
             raise InvalidResourceException(
                 self.api_logical_id, "JwtConfiguration must be defined only for OAuth2 Authorizer."
             )
 
-        if self.id_source is not None and not authorizer_type == "JWT":
+        if self.id_source is not None and authorizer_type != "JWT":
             raise InvalidResourceException(
                 self.api_logical_id, "IdentitySource must be defined only for OAuth2 Authorizer."
             )
 
-        if self.function_arn is not None and not authorizer_type == "REQUEST":
+        if self.function_arn is not None and authorizer_type != "REQUEST":
             raise InvalidResourceException(
                 self.api_logical_id, "FunctionArn must be defined only for Lambda Authorizer."
             )
 
-        if self.function_invoke_role is not None and not authorizer_type == "REQUEST":
+        if self.function_invoke_role is not None and authorizer_type != "REQUEST":
             raise InvalidResourceException(
                 self.api_logical_id, "FunctionInvokeRole must be defined only for Lambda Authorizer."
             )
 
-        if self.identity is not None and not authorizer_type == "REQUEST":
+        if self.identity is not None and authorizer_type != "REQUEST":
             raise InvalidResourceException(self.api_logical_id, "Identity must be defined only for Lambda Authorizer.")
 
-        if self.authorizer_payload_format_version is not None and not authorizer_type == "REQUEST":
+        if (
+            self.authorizer_payload_format_version is not None
+            and authorizer_type != "REQUEST"
+        ):
             raise InvalidResourceException(
                 self.api_logical_id, "AuthorizerPayloadFormatVersion must be defined only for Lambda Authorizer."
             )
 
-        if self.enable_simple_responses is not None and not authorizer_type == "REQUEST":
+        if (
+            self.enable_simple_responses is not None
+            and authorizer_type != "REQUEST"
+        ):
             raise InvalidResourceException(
                 self.api_logical_id, "EnableSimpleResponses must be defined only for Lambda Authorizer."
             )
@@ -175,11 +179,13 @@ class ApiGatewayV2Authorizer(object):
         authorizer_type = self._get_auth_type()
 
         if authorizer_type == "JWT":
-            openapi = {"type": "oauth2"}
-            openapi[APIGATEWAY_AUTHORIZER_KEY] = {
-                "jwtConfiguration": self.jwt_configuration,
-                "identitySource": self.id_source,
-                "type": "jwt",
+            openapi = {
+                "type": "oauth2",
+                APIGATEWAY_AUTHORIZER_KEY: {
+                    "jwtConfiguration": self.jwt_configuration,
+                    "identitySource": self.id_source,
+                    "type": "jwt",
+                },
             }
 
         if authorizer_type == "REQUEST":
@@ -187,8 +193,8 @@ class ApiGatewayV2Authorizer(object):
                 "type": "apiKey",
                 "name": "Unused",
                 "in": "header",
+                APIGATEWAY_AUTHORIZER_KEY: {"type": "request"},
             }
-            openapi[APIGATEWAY_AUTHORIZER_KEY] = {"type": "request"}
 
             # Generate the lambda arn
             partition = ArnGenerator.get_partition_name()
@@ -201,9 +207,7 @@ class ApiGatewayV2Authorizer(object):
             )
             openapi[APIGATEWAY_AUTHORIZER_KEY]["authorizerUri"] = authorizer_uri
 
-            # Set authorizerCredentials if present
-            function_invoke_role = self._get_function_invoke_role()
-            if function_invoke_role:
+            if function_invoke_role := self._get_function_invoke_role():
                 openapi[APIGATEWAY_AUTHORIZER_KEY]["authorizerCredentials"] = function_invoke_role
 
             # Set authorizerResultTtlInSeconds if present
@@ -239,32 +243,41 @@ class ApiGatewayV2Authorizer(object):
         identity_source_context = []
 
         if self.identity.get("Headers"):
-            identity_source_headers = list(map(lambda h: "$request.header." + h, self.identity.get("Headers")))
+            identity_source_headers = list(
+                map(lambda h: f"$request.header.{h}", self.identity.get("Headers"))
+            )
+
 
         if self.identity.get("QueryStrings"):
             identity_source_query_strings = list(
-                map(lambda qs: "$request.querystring." + qs, self.identity.get("QueryStrings"))
+                map(
+                    lambda qs: f"$request.querystring.{qs}",
+                    self.identity.get("QueryStrings"),
+                )
             )
+
 
         if self.identity.get("StageVariables"):
             identity_source_stage_variables = list(
-                map(lambda sv: "$stageVariables." + sv, self.identity.get("StageVariables"))
+                map(
+                    lambda sv: f"$stageVariables.{sv}",
+                    self.identity.get("StageVariables"),
+                )
             )
 
-        if self.identity.get("Context"):
-            identity_source_context = list(map(lambda c: "$context." + c, self.identity.get("Context")))
 
-        identity_source = (
+        if self.identity.get("Context"):
+            identity_source_context = list(
+                map(lambda c: f"$context.{c}", self.identity.get("Context"))
+            )
+
+
+        return (
             identity_source_headers
             + identity_source_query_strings
             + identity_source_stage_variables
             + identity_source_context
         )
 
-        return identity_source
-
     def _get_reauthorize_every(self):
-        if not self.identity:
-            return None
-
-        return self.identity.get("ReauthorizeEvery")
+        return self.identity.get("ReauthorizeEvery") if self.identity else None

@@ -98,8 +98,10 @@ class TestFunctionWithDeploymentPreference(BaseTest):
 
     def _get_deployments(self, application_name, deployment_group):
         deployments = self.client_provider.code_deploy_client.list_deployments()["deployments"]
-        deployment_infos = [self._get_deployment_info(deployment_id) for deployment_id in deployments]
-        return deployment_infos
+        return [
+            self._get_deployment_info(deployment_id)
+            for deployment_id in deployments
+        ]
 
     def _get_deployment_info(self, deployment_id):
         return self.client_provider.code_deploy_client.get_deployment(deploymentId=deployment_id)["deploymentInfo"]

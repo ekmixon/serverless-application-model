@@ -5,23 +5,21 @@ from samtranslator.model.exceptions import InvalidEventException
 class EventBridgeRuleUtils:
     @staticmethod
     def create_dead_letter_queue_with_policy(rule_logical_id, rule_arn, queue_logical_id=None, attributes=None):
-        resources = []
+        queue = SQSQueue(
+            queue_logical_id or f"{rule_logical_id}Queue", attributes=attributes
+        )
 
-        queue = SQSQueue(queue_logical_id or rule_logical_id + "Queue", attributes=attributes)
         dlq_queue_arn = queue.get_runtime_attr("arn")
         dlq_queue_url = queue.get_runtime_attr("queue_url")
 
         # grant necessary permission to Eventbridge Rule resource for sending messages to dead-letter queue
-        policy = SQSQueuePolicy(rule_logical_id + "QueuePolicy", attributes=attributes)
+        policy = SQSQueuePolicy(f"{rule_logical_id}QueuePolicy", attributes=attributes)
         policy.PolicyDocument = SQSQueuePolicies.eventbridge_dlq_send_message_resource_based_policy(
             rule_arn, dlq_queue_arn
         )
         policy.Queues = [dlq_queue_url]
 
-        resources.append(queue)
-        resources.append(policy)
-
-        return resources
+        return [queue, policy]
 
     @staticmethod
     def validate_dlq_config(source_logical_id, dead_letter_config):

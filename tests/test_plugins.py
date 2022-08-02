@@ -130,7 +130,7 @@ class TestSamPluginsAct(TestCase):
         # Setup the plugin to return a mock when the "on_" method is invoked
         plugin = _make_mock_plugin("plugin")
         hook_method = Mock()
-        setattr(plugin, "on_" + self.my_event.name, hook_method)
+        setattr(plugin, f"on_{self.my_event.name}", hook_method)
 
         self.sam_plugins.register(plugin)
 
@@ -147,11 +147,11 @@ class TestSamPluginsAct(TestCase):
 
         # Create three plugins, and setup hook methods on it
         plugin1 = _make_mock_plugin("plugin1")
-        setattr(plugin1, "on_" + self.my_event.name, Mock())
+        setattr(plugin1, f"on_{self.my_event.name}", Mock())
         plugin2 = _make_mock_plugin("plugin2")
-        setattr(plugin2, "on_" + self.my_event.name, Mock())
+        setattr(plugin2, f"on_{self.my_event.name}", Mock())
         plugin3 = _make_mock_plugin("plugin3")
-        setattr(plugin3, "on_" + self.my_event.name, Mock())
+        setattr(plugin3, f"on_{self.my_event.name}", Mock())
 
         self.sam_plugins.register(plugin1)
         self.sam_plugins.register(plugin2)
@@ -172,11 +172,11 @@ class TestSamPluginsAct(TestCase):
 
         # Create three plugins, and setup hook methods on it
         plugin1 = _make_mock_plugin("plugin1")
-        setattr(plugin1, "on_" + self.my_event.name, Mock())
+        setattr(plugin1, f"on_{self.my_event.name}", Mock())
         plugin2 = _make_mock_plugin("plugin2")
-        setattr(plugin2, "on_" + self.my_event.name, Mock())
+        setattr(plugin2, f"on_{self.my_event.name}", Mock())
         plugin3 = _make_mock_plugin("plugin3")
-        setattr(plugin3, "on_" + self.my_event.name, Mock())
+        setattr(plugin3, f"on_{self.my_event.name}", Mock())
 
         # Create a parent mock and attach child mocks to help assert order of the calls
         # https://stackoverflow.com/questions/32463321/how-to-assert-method-call-order-with-python-mock
@@ -199,7 +199,7 @@ class TestSamPluginsAct(TestCase):
 
         # Create three plugins, and setup hook methods on it
         plugin1 = _make_mock_plugin("plugin1")
-        setattr(plugin1, "on_" + self.my_event.name, Mock())
+        setattr(plugin1, f"on_{self.my_event.name}", Mock())
 
         # Don't register any plugin
 
@@ -241,7 +241,7 @@ class TestSamPluginsAct(TestCase):
 
         # Create a plugin but setup hook method with wrong name
         plugin1 = _make_mock_plugin("plugin1")
-        setattr(plugin1, "on_" + self.my_event.name, Mock())
+        setattr(plugin1, f"on_{self.my_event.name}", Mock())
         self.sam_plugins.register(plugin1)
 
         # Setup the hook to raise exception
@@ -257,11 +257,11 @@ class TestSamPluginsAct(TestCase):
 
         # Create three plugins, and setup hook methods on it
         plugin1 = _make_mock_plugin("plugin1")
-        setattr(plugin1, "on_" + self.my_event.name, Mock())
+        setattr(plugin1, f"on_{self.my_event.name}", Mock())
         plugin2 = _make_mock_plugin("plugin2")
-        setattr(plugin2, "on_" + self.my_event.name, Mock())
+        setattr(plugin2, f"on_{self.my_event.name}", Mock())
         plugin3 = _make_mock_plugin("plugin3")
-        setattr(plugin3, "on_" + self.my_event.name, Mock())
+        setattr(plugin3, f"on_{self.my_event.name}", Mock())
 
         # Create a parent mock and attach child mocks to help assert order of the calls
         # https://stackoverflow.com/questions/32463321/how-to-assert-method-call-order-with-python-mock

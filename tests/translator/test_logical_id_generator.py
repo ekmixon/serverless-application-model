@@ -37,7 +37,7 @@ class TestLogicalIdGenerator(TestCase):
 
         generator = LogicalIdGenerator(self.prefix, data_obj=data)
 
-        expected = "{}{}".format(self.prefix, hash_value)
+        expected = f"{self.prefix}{hash_value}"
         self.assertEqual(expected, generator.gen())
         get_hash_mock.assert_called_once_with()
         stringify_mock.assert_called_once_with(data)
@@ -53,7 +53,7 @@ class TestLogicalIdGenerator(TestCase):
 
         generator = LogicalIdGenerator(self.prefix, data_obj=data, data_hash=hash_value)
 
-        expected = "{}{}".format(self.prefix, hash_value)
+        expected = f"{self.prefix}{hash_value}"
         self.assertEqual(expected, generator.gen())
         stringify_mock.assert_called_once_with(data)
 
@@ -128,7 +128,7 @@ class TestLogicalIdGenerator(TestCase):
         # We are essentially duplicating the implementation here. This is done on purpose to prevent
         # accidental change of the algorithm. Any changes to the hash generation must be backwards compatible.
         # This test will help catch such issues before hand.
-        utf_data = str(stringified_data).encode("utf8")
+        utf_data = stringified_data.encode("utf8")
         expected = hashlib.sha1(bytes(utf_data)).hexdigest()[:10]
         self.assertEqual(expected, generator.get_hash())
 

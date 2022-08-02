@@ -23,7 +23,7 @@ class ManagedPolicyLoader(object):
             name_to_arn_map = {}
 
             for page in page_iterator:
-                name_to_arn_map.update(map(lambda x: (x["PolicyName"], x["Arn"]), page["Policies"]))
+                name_to_arn_map |= map(lambda x: (x["PolicyName"], x["Arn"]), page["Policies"])
 
             LOG.info("Finished loading policies from IAM.")
             self._policy_map = name_to_arn_map

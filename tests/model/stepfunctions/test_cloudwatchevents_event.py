@@ -132,7 +132,10 @@ class CloudWatchEventsEventSource(TestCase):
 
     def test_to_cloudformation_with_dlq_generated(self):
         dead_letter_config = {"Type": "SQS"}
-        dead_letter_config_translated = {"Arn": {"Fn::GetAtt": [self.logical_id + "Queue", "Arn"]}}
+        dead_letter_config_translated = {
+            "Arn": {"Fn::GetAtt": [f"{self.logical_id}Queue", "Arn"]}
+        }
+
         self.cwe_event_source.DeadLetterConfig = dead_letter_config
         resources = self.cwe_event_source.to_cloudformation(resource=self.state_machine)
         self.assertEqual(len(resources), 4)

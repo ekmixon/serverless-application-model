@@ -32,7 +32,7 @@ def construct_role_for_resource(
     :returns: the generated IAM Role
     :rtype: model.iam.IAMRole
     """
-    role_logical_id = resource_logical_id + "Role"
+    role_logical_id = f"{resource_logical_id}Role"
     execution_role = IAMRole(logical_id=role_logical_id, attributes=attributes)
     execution_role.AssumeRolePolicyDocument = assume_role_policy_document
 
@@ -53,16 +53,18 @@ def construct_role_for_resource(
 
                 if not is_intrinsic_no_value(then_statement):
                     then_statement = {
-                        "PolicyName": execution_role.logical_id + "Policy" + str(index),
+                        "PolicyName": f"{execution_role.logical_id}Policy{str(index)}",
                         "PolicyDocument": then_statement,
                     }
+
                     intrinsic_if["Fn::If"][1] = then_statement
 
                 if not is_intrinsic_no_value(else_statement):
                     else_statement = {
-                        "PolicyName": execution_role.logical_id + "Policy" + str(index),
+                        "PolicyName": f"{execution_role.logical_id}Policy{str(index)}",
                         "PolicyDocument": else_statement,
                     }
+
                     intrinsic_if["Fn::If"][2] = else_statement
 
                 policy_documents.append(intrinsic_if)
@@ -70,10 +72,11 @@ def construct_role_for_resource(
             else:
                 policy_documents.append(
                     {
-                        "PolicyName": execution_role.logical_id + "Policy" + str(index),
+                        "PolicyName": f"{execution_role.logical_id}Policy{str(index)}",
                         "PolicyDocument": policy_entry.data,
                     }
                 )
+
 
         elif policy_entry.type is PolicyTypes.MANAGED_POLICY:
 
@@ -98,10 +101,9 @@ def construct_role_for_resource(
             # Policy Templates are not supported here in the "core"
             raise InvalidResourceException(
                 resource_logical_id,
-                "Policy at index {} in the '{}' property is not valid".format(
-                    index, resource_policies.POLICIES_PROPERTY_NAME
-                ),
+                f"Policy at index {index} in the '{resource_policies.POLICIES_PROPERTY_NAME}' property is not valid",
             )
+
 
     execution_role.ManagedPolicyArns = list(managed_policy_arns)
     execution_role.Policies = policy_documents or None

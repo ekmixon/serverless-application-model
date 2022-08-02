@@ -126,9 +126,11 @@ class TestFunctionWithAlias(BaseTest):
         lambda_client = self.client_provider.lambda_client
         versions = lambda_client.list_versions_by_function(FunctionName=function_name)["Versions"]
 
-        # Exclude $LATEST from the list and simply return all the version numbers.
-        filtered_versions = [version["Version"] for version in versions if version["Version"] != "$LATEST"]
-        return filtered_versions
+        return [
+            version["Version"]
+            for version in versions
+            if version["Version"] != "$LATEST"
+        ]
 
     def get_alias(self, function_name, alias_name):
         lambda_client = self.client_provider.lambda_client
@@ -140,14 +142,13 @@ class TestFunctionWithAlias(BaseTest):
             policy_result = lambda_client.get_policy(FunctionName=function_arn)
             return policy_result["Policy"]
         except ClientError as error:
-            if error.response["Error"]["Code"] == "ResourceNotFoundException":
-                LOG.debug("The resource you requested does not exist.")
-                return None
-            else:
+            if error.response["Error"]["Code"] != "ResourceNotFoundException":
                 raise error
+            LOG.debug("The resource you requested does not exist.")
+            return None
 
     def get_default_test_template_parameters(self):
-        parameters = [
+        return [
             {
                 "ParameterKey": "Bucket",
                 "ParameterValue": self.s3_bucket_name,
@@ -167,4 +168,3 @@ class TestFunctionWithAlias(BaseTest):
                 "ResolvedValue": "string",
             },
         ]
-        return parameters

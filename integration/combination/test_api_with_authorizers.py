@@ -119,16 +119,22 @@ class TestApiWithAuthorizers(BaseTest):
 
         base_url = stack_outputs["ApiUrl"]
 
-        self.verify_authorized_request(base_url + "none", 200)
-        self.verify_authorized_request(base_url + "lambda-token", 401)
-        self.verify_authorized_request(base_url + "lambda-token", 200, "Authorization", "allow")
+        self.verify_authorized_request(f"{base_url}none", 200)
+        self.verify_authorized_request(f"{base_url}lambda-token", 401)
+        self.verify_authorized_request(
+            f"{base_url}lambda-token", 200, "Authorization", "allow"
+        )
 
-        self.verify_authorized_request(base_url + "lambda-request", 401)
-        self.verify_authorized_request(base_url + "lambda-request?authorization=allow", 200)
 
-        self.verify_authorized_request(base_url + "cognito", 401)
+        self.verify_authorized_request(f"{base_url}lambda-request", 401)
+        self.verify_authorized_request(
+            f"{base_url}lambda-request?authorization=allow", 200
+        )
 
-        self.verify_authorized_request(base_url + "iam", 403)
+
+        self.verify_authorized_request(f"{base_url}cognito", 401)
+
+        self.verify_authorized_request(f"{base_url}iam", 403)
 
     def test_authorizers_max(self):
         self.create_and_verify_stack("combination/api_with_authorizers_max")
@@ -247,18 +253,25 @@ class TestApiWithAuthorizers(BaseTest):
 
         base_url = stack_outputs["ApiUrl"]
 
-        self.verify_authorized_request(base_url + "none", 200)
-        self.verify_authorized_request(base_url + "lambda-token", 401)
-        self.verify_authorized_request(base_url + "lambda-token", 200, "MyCustomAuthHeader", "allow")
-
-        self.verify_authorized_request(base_url + "lambda-request", 401)
+        self.verify_authorized_request(f"{base_url}none", 200)
+        self.verify_authorized_request(f"{base_url}lambda-token", 401)
         self.verify_authorized_request(
-            base_url + "lambda-request?authorization=allow&authorizationQueryString1=x", 200, "authorizationHeader", "y"
+            f"{base_url}lambda-token", 200, "MyCustomAuthHeader", "allow"
         )
 
-        self.verify_authorized_request(base_url + "cognito", 401)
 
-        self.verify_authorized_request(base_url + "iam", 403)
+        self.verify_authorized_request(f"{base_url}lambda-request", 401)
+        self.verify_authorized_request(
+            f"{base_url}lambda-request?authorization=allow&authorizationQueryString1=x",
+            200,
+            "authorizationHeader",
+            "y",
+        )
+
+
+        self.verify_authorized_request(f"{base_url}cognito", 401)
+
+        self.verify_authorized_request(f"{base_url}iam", 403)
 
     def test_authorizers_max_openapi(self):
         self.create_and_verify_stack("combination/api_with_authorizers_max_openapi")
@@ -377,24 +390,34 @@ class TestApiWithAuthorizers(BaseTest):
 
         base_url = stack_outputs["ApiUrl"]
 
-        self.verify_authorized_request(base_url + "none", 200)
-        self.verify_authorized_request(base_url + "lambda-token", 401)
-        self.verify_authorized_request(base_url + "lambda-token", 200, "MyCustomAuthHeader", "allow")
-
-        self.verify_authorized_request(base_url + "lambda-request", 401)
+        self.verify_authorized_request(f"{base_url}none", 200)
+        self.verify_authorized_request(f"{base_url}lambda-token", 401)
         self.verify_authorized_request(
-            base_url + "lambda-request?authorization=allow&authorizationQueryString1=x", 200, "authorizationHeader", "y"
+            f"{base_url}lambda-token", 200, "MyCustomAuthHeader", "allow"
         )
 
-        self.verify_authorized_request(base_url + "cognito", 401)
 
-        self.verify_authorized_request(base_url + "iam", 403)
+        self.verify_authorized_request(f"{base_url}lambda-request", 401)
+        self.verify_authorized_request(
+            f"{base_url}lambda-request?authorization=allow&authorizationQueryString1=x",
+            200,
+            "authorizationHeader",
+            "y",
+        )
+
+
+        self.verify_authorized_request(f"{base_url}cognito", 401)
+
+        self.verify_authorized_request(f"{base_url}iam", 403)
 
         api_key_id = stack_outputs["ApiKeyId"]
         key = apigw_client.get_api_key(apiKey=api_key_id, includeValue=True)
 
-        self.verify_authorized_request(base_url + "apikey", 200, "x-api-key", key["value"])
-        self.verify_authorized_request(base_url + "apikey", 403)
+        self.verify_authorized_request(
+            f"{base_url}apikey", 200, "x-api-key", key["value"]
+        )
+
+        self.verify_authorized_request(f"{base_url}apikey", 403)
 
     def test_authorizers_with_invoke_function_set_none(self):
         self.create_and_verify_stack("combination/api_with_authorizers_invokefunction_set_none")
@@ -438,13 +461,17 @@ class TestApiWithAuthorizers(BaseTest):
         status = response.status_code
         if status != expected_status_code:
             raise StatusCodeError(
-                "Request to {} failed with status: {}, expected status: {}".format(url, status, expected_status_code)
+                f"Request to {url} failed with status: {status}, expected status: {expected_status_code}"
             )
+
 
         if not header_key or not header_value:
             self.assertEqual(
-                status, expected_status_code, "Request to " + url + "  must return HTTP " + str(expected_status_code)
+                status,
+                expected_status_code,
+                f"Request to {url}  must return HTTP {str(expected_status_code)}",
             )
+
         else:
             self.assertEqual(
                 status,
@@ -461,17 +488,20 @@ class TestApiWithAuthorizers(BaseTest):
 
 
 def get_authorizer_by_name(authorizers, name):
-    for authorizer in authorizers:
-        if authorizer["name"] == name:
-            return authorizer
-    return None
+    return next(
+        (
+            authorizer
+            for authorizer in authorizers
+            if authorizer["name"] == name
+        ),
+        None,
+    )
 
 
 def get_resource_by_path(resources, path):
-    for resource in resources:
-        if resource["path"] == path:
-            return resource
-    return None
+    return next(
+        (resource for resource in resources if resource["path"] == path), None
+    )
 
 
 def get_method(resources, path, rest_api_id, apigw_client):

@@ -128,23 +128,20 @@ class SamFunction(SamResourceMacro):
         :returns: a list of vanilla CloudFormation Resources, to which this Function expands
         :rtype: list
         """
-        resources = []
         intrinsics_resolver = kwargs["intrinsics_resolver"]
-        mappings_resolver = kwargs.get("mappings_resolver", None)
+        mappings_resolver = kwargs.get("mappings_resolver")
         conditions = kwargs.get("conditions", {})
 
         if self.DeadLetterQueue:
             self._validate_dlq()
 
         lambda_function = self._construct_lambda_function()
-        resources.append(lambda_function)
-
-        if self.ProvisionedConcurrencyConfig:
-            if not self.AutoPublishAlias:
-                raise InvalidResourceException(
-                    self.logical_id,
-                    "To set ProvisionedConcurrencyConfig " "AutoPublishALias must be defined on the function",
-                )
+        resources = [lambda_function]
+        if self.ProvisionedConcurrencyConfig and not self.AutoPublishAlias:
+            raise InvalidResourceException(
+                self.logical_id,
+                "To set ProvisionedConcurrencyConfig " "AutoPublishALias must be defined on the function",
+            )
 
         lambda_alias = None
         alias_name = ""
@@ -157,9 +154,7 @@ class SamFunction(SamResourceMacro):
                 lambda_function, intrinsics_resolver=intrinsics_resolver, code_sha256=code_sha256
             )
             lambda_alias = self._construct_alias(alias_name, lambda_function, lambda_version)
-            resources.append(lambda_version)
-            resources.append(lambda_alias)
-
+            resources.extend((lambda_version, lambda_alias))
         if self.DeploymentPreference:
             self._validate_deployment_preference_and_add_update_policy(
                 kwargs.get("deployment_preference_collection", None),
@@ -243,10 +238,7 @@ class SamFunction(SamResourceMacro):
                 policy_document.append(policy)
 
         lambda_event_invoke_config.FunctionName = ref(function_name)
-        if alias_name:
-            lambda_event_invoke_config.Qualifier = alias_name
-        else:
-            lambda_event_invoke_config.Qualifier = "$LATEST"
+        lambda_event_invoke_config.Qualifier = alias_name or "$LATEST"
         lambda_event_invoke_config.DestinationConfig = dest_config
         lambda_event_invoke_config.MaximumEventAgeInSeconds = resolved_event_invoke_config.get(
             "MaximumEventAgeInSeconds"
@@ -267,14 +259,14 @@ class SamFunction(SamResourceMacro):
         auto_inject_list = ["SQS", "SNS"]
         resource = None
         policy = {}
-        destination = {}
-        destination["Destination"] = dest_config.get("Destination")
-
+        destination = {"Destination": dest_config.get("Destination")}
         resource_logical_id = logical_id + event
         if dest_config.get("Type") is None or dest_config.get("Type") not in accepted_types_list:
             raise InvalidResourceException(
-                self.logical_id, "'Type: {}' must be one of {}".format(dest_config.get("Type"), accepted_types_list)
+                self.logical_id,
+                f"""'Type: {dest_config.get("Type")}' must be one of {accepted_types_list}""",
             )
+
 
         property_condition, dest_arn = self._get_or_make_condition(
             dest_config.get("Destination"), logical_id, conditions
@@ -283,30 +275,37 @@ class SamFunction(SamResourceMacro):
             combined_condition = self._make_and_conditions(
                 self.get_passthrough_resource_attributes().get("Condition"), property_condition, conditions
             )
-            if dest_config.get("Type") in auto_inject_list:
-                if dest_config.get("Type") == "SQS":
-                    resource = SQSQueue(
-                        resource_logical_id + "Queue", attributes=self.get_passthrough_resource_attributes()
-                    )
-                if dest_config.get("Type") == "SNS":
-                    resource = SNSTopic(
-                        resource_logical_id + "Topic", attributes=self.get_passthrough_resource_attributes()
-                    )
-                if combined_condition:
-                    resource.set_resource_attribute("Condition", combined_condition)
-                if property_condition:
-                    destination["Destination"] = make_conditional(
-                        property_condition, resource.get_runtime_attr("arn"), dest_arn
-                    )
-                else:
-                    destination["Destination"] = resource.get_runtime_attr("arn")
-                policy = self._add_event_invoke_managed_policy(
-                    dest_config, resource_logical_id, property_condition, destination["Destination"]
-                )
-            else:
+            if dest_config.get("Type") not in auto_inject_list:
                 raise InvalidResourceException(
-                    self.logical_id, "Destination is required if Type is not {}".format(auto_inject_list)
+                    self.logical_id,
+                    f"Destination is required if Type is not {auto_inject_list}",
                 )
+
+            if dest_config.get("Type") == "SQS":
+                resource = SQSQueue(
+                    f"{resource_logical_id}Queue",
+                    attributes=self.get_passthrough_resource_attributes(),
+                )
+
+            if dest_config.get("Type") == "SNS":
+                resource = SNSTopic(
+                    f"{resource_logical_id}Topic",
+                    attributes=self.get_passthrough_resource_attributes(),
+                )
+
+            if combined_condition:
+                resource.set_resource_attribute("Condition", combined_condition)
+            destination["Destination"] = (
+                make_conditional(
+                    property_condition, resource.get_runtime_attr("arn"), dest_arn
+                )
+                if property_condition
+                else resource.get_runtime_attr("arn")
+            )
+
+            policy = self._add_event_invoke_managed_policy(
+                dest_config, resource_logical_id, property_condition, destination["Destination"]
+            )
         if dest_config.get("Destination") is not None and property_condition is None:
             policy = self._add_event_invoke_managed_policy(
                 dest_config, resource_logical_id, None, dest_config.get("Destination")
@@ -322,7 +321,10 @@ class SamFunction(SamResourceMacro):
             return resource_condition
 
         and_condition = make_and_condition([{"Condition": resource_condition}, {"Condition": property_condition}])
-        condition_name = self._make_gen_condition_name(resource_condition + "AND" + property_condition, self.logical_id)
+        condition_name = self._make_gen_condition_name(
+            f"{resource_condition}AND{property_condition}", self.logical_id
+        )
+
         conditions[condition_name] = and_condition
 
         return condition_name
@@ -351,7 +353,7 @@ class SamFunction(SamResourceMacro):
                 return dest_list[0], dest_list[2]
             if is_intrinsic_no_value(dest_list[2]):
                 condition = dest_list[0]
-                not_condition = self._make_gen_condition_name("NOT" + condition, logical_id)
+                not_condition = self._make_gen_condition_name(f"NOT{condition}", logical_id)
                 conditions[not_condition] = make_not_conditional(condition)
                 return not_condition, dest_list[1]
         return None, None
@@ -383,8 +385,10 @@ class SamFunction(SamResourceMacro):
         if not isinstance(resolved_alias_name, string_types):
             # This is still a dictionary which means we are not able to completely resolve intrinsics
             raise InvalidResourceException(
-                self.logical_id, "'{}' must be a string or a Ref to a template parameter".format(property_name)
+                self.logical_id,
+                f"'{property_name}' must be a string or a Ref to a template parameter",
             )
+
 
         return resolved_alias_name
 
@@ -480,11 +484,10 @@ class SamFunction(SamResourceMacro):
                 )
             )
 
-        if self.EventInvokeConfig:
-            if event_invoke_policies is not None:
-                policy_documents.extend(event_invoke_policies)
+        if self.EventInvokeConfig and event_invoke_policies is not None:
+            policy_documents.extend(event_invoke_policies)
 
-        execution_role = construct_role_for_resource(
+        return construct_role_for_resource(
             resource_logical_id=self.logical_id,
             attributes=role_attributes,
             managed_policy_map=managed_policy_map,
@@ -495,7 +498,6 @@ class SamFunction(SamResourceMacro):
             permissions_boundary=self.PermissionsBoundary,
             tags=self._construct_tag_list(self.Tags),
         )
-        return execution_role
 
     def _validate_package_type(self, lambda_function):
         """
@@ -554,9 +556,13 @@ class SamFunction(SamResourceMacro):
             )
 
         # Validate required Types
-        if not self.DeadLetterQueue["Type"] in self.dead_letter_queue_policy_actions:
+        if (
+            self.DeadLetterQueue["Type"]
+            not in self.dead_letter_queue_policy_actions
+        ):
             raise InvalidResourceException(
-                self.logical_id, "'DeadLetterQueue' requires Type of {}".format(valid_dlq_types)
+                self.logical_id,
+                f"'DeadLetterQueue' requires Type of {valid_dlq_types}",
             )
 
     def _event_resources_to_link(self, resources):
@@ -568,7 +574,7 @@ class SamFunction(SamResourceMacro):
                         self.logical_id + logical_id, event_dict, logical_id
                     )
                 except (TypeError, AttributeError) as e:
-                    raise InvalidEventException(logical_id, "{}".format(e))
+                    raise InvalidEventException(logical_id, f"{e}")
                 event_resources[logical_id] = event_source.resources_to_link(resources)
         return event_resources
 
@@ -583,9 +589,11 @@ class SamFunction(SamResourceMacro):
         :param event: tuple of (logical_id, event_dictionary) that contains event information
         """
         logical_id, event_dict = event
-        if not isinstance(event_dict, dict):
-            return logical_id
-        return event_dict.get("Properties", {}).get("Path", logical_id)
+        return (
+            event_dict.get("Properties", {}).get("Path", logical_id)
+            if isinstance(event_dict, dict)
+            else logical_id
+        )
 
     def _generate_event_resources(
         self, lambda_function, execution_role, event_resources, intrinsics_resolver, lambda_alias=None
@@ -611,7 +619,7 @@ class SamFunction(SamResourceMacro):
                         lambda_function.logical_id + logical_id, event_dict, logical_id
                     )
                 except TypeError as e:
-                    raise InvalidEventException(logical_id, "{}".format(e))
+                    raise InvalidEventException(logical_id, f"{e}")
 
                 kwargs = {
                     # When Alias is provided, connect all event sources to the alias and *not* the function
@@ -660,13 +668,13 @@ class SamFunction(SamResourceMacro):
         filtered_artifacts = dict(filter(lambda x: x[1] != None, artifacts.items()))
         # There are more than one allowed artifact types present, raise an Error.
         # There are no valid artifact types present, also raise an Error.
-        if len(filtered_artifacts) > 1 or len(filtered_artifacts) == 0:
-            if packagetype == ZIP and len(filtered_artifacts) == 0:
+        if len(filtered_artifacts) > 1 or not filtered_artifacts:
+            if packagetype == ZIP and not filtered_artifacts:
                 raise InvalidResourceException(self.logical_id, "Only one of 'InlineCode' or 'CodeUri' can be set.")
             elif packagetype == IMAGE:
                 raise InvalidResourceException(self.logical_id, "'ImageUri' must be set.")
 
-        filtered_keys = [key for key in filtered_artifacts.keys()]
+        filtered_keys = list(filtered_artifacts.keys())
         # NOTE(sriram-mv): This precedence order is important. It is protect against python2 vs python3
         # dictionary ordering when getting the key values with .keys() on a dictionary.
         # Do not change this precedence order.
@@ -856,8 +864,6 @@ class SamApi(SamResourceMacro):
         :returns: a list of vanilla CloudFormation Resources, to which this Function expands
         :rtype: list
         """
-        resources = []
-
         intrinsics_resolver = kwargs["intrinsics_resolver"]
         self.BinaryMediaTypes = intrinsics_resolver.resolve_parameter_refs(self.BinaryMediaTypes)
         self.Domain = intrinsics_resolver.resolve_parameter_refs(self.Domain)
@@ -909,7 +915,7 @@ class SamApi(SamResourceMacro):
             usage_plan_resources,
         ) = api_generator.to_cloudformation(redeploy_restapi_parameters)
 
-        resources.extend([rest_api, deployment, stage])
+        resources = [rest_api, deployment, stage]
         resources.extend(permissions)
         if domain:
             resources.extend([domain])
@@ -963,7 +969,6 @@ class SamHttpApi(SamResourceMacro):
         :returns: a list of vanilla CloudFormation Resources, to which this Function expands
         :rtype: list
         """
-        resources = []
         intrinsics_resolver = kwargs["intrinsics_resolver"]
         self.CorsConfiguration = intrinsics_resolver.resolve_parameter_refs(self.CorsConfiguration)
 
@@ -999,7 +1004,7 @@ class SamHttpApi(SamResourceMacro):
             route53,
         ) = api_generator.to_cloudformation()
 
-        resources.append(http_api)
+        resources = [http_api]
         if domain:
             resources.append(domain)
         if basepath_mapping:
@@ -1106,7 +1111,7 @@ class SamApplication(SamResourceMacro):
         application_tags = self._get_application_tags()
         nested_stack.Tags = self._construct_tag_list(self.Tags, application_tags)
         nested_stack.TimeoutInMinutes = self.TimeoutInMinutes
-        nested_stack.TemplateURL = self.TemplateUrl if self.TemplateUrl else ""
+        nested_stack.TemplateURL = self.TemplateUrl or ""
 
         return nested_stack
 
@@ -1149,13 +1154,9 @@ class SamLayerVersion(SamResourceMacro):
         :returns: a list of vanilla CloudFormation Resources, to which this Function expands
         :rtype: list
         """
-        resources = []
-
         # Append any CFN resources:
         intrinsics_resolver = kwargs["intrinsics_resolver"]
-        resources.append(self._construct_lambda_layer(intrinsics_resolver))
-
-        return resources
+        return [self._construct_lambda_layer(intrinsics_resolver)]
 
     def _construct_lambda_layer(self, intrinsics_resolver):
         """Constructs and returns the Lambda function.
@@ -1230,9 +1231,9 @@ class SamLayerVersion(SamResourceMacro):
             # attribute. And DeletionPolicy attribute does not support intrinsic values.
             raise InvalidResourceException(
                 self.logical_id,
-                "'RetentionPolicy' does not accept intrinsic functions, "
-                "please use one of the following options: {}".format([self.RETAIN, self.DELETE]),
+                f"'RetentionPolicy' does not accept intrinsic functions, please use one of the following options: {[self.RETAIN, self.DELETE]}",
             )
+
 
         if self.RetentionPolicy is None:
             return None
@@ -1243,7 +1244,7 @@ class SamLayerVersion(SamResourceMacro):
         elif self.RetentionPolicy.lower() not in self.retention_policy_options:
             raise InvalidResourceException(
                 self.logical_id,
-                "'RetentionPolicy' must be one of the following options: {}.".format([self.RETAIN, self.DELETE]),
+                f"'RetentionPolicy' must be one of the following options: {[self.RETAIN, self.DELETE]}.",
             )
 
 
@@ -1297,8 +1298,7 @@ class SamStateMachine(SamResourceMacro):
             passthrough_resource_attributes=self.get_passthrough_resource_attributes(),
         )
 
-        resources = state_machine_generator.to_cloudformation()
-        return resources
+        return state_machine_generator.to_cloudformation()
 
     def resources_to_link(self, resources):
         try:
@@ -1315,6 +1315,6 @@ class SamStateMachine(SamResourceMacro):
                         self.logical_id + logical_id, event_dict, logical_id
                     )
                 except (TypeError, AttributeError) as e:
-                    raise InvalidEventException(logical_id, "{}".format(e))
+                    raise InvalidEventException(logical_id, f"{e}")
                 event_resources[logical_id] = event_source.resources_to_link(resources)
         return event_resources

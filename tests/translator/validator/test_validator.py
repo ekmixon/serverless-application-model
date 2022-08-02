@@ -115,7 +115,10 @@ def test_validate_template_success(testcase):
     ]
     if testcase in excluded:
         return
-    manifest = yaml_parse(open(os.path.join(INPUT_FOLDER, testcase + ".yaml"), "r"))
+    manifest = yaml_parse(
+        open(os.path.join(INPUT_FOLDER, f"{testcase}.yaml"), "r")
+    )
+
     validation_errors = SamTemplateValidator.validate(manifest)
     has_errors = len(validation_errors)
     if has_errors:

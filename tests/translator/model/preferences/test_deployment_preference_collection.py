@@ -22,7 +22,7 @@ class TestDeploymentPreferenceCollection(TestCase):
     @patch("boto3.session.Session.region_name", "ap-southeast-1")
     def test_when_no_global_dict_each_local_deployment_preference_requires_parameters(self):
         with self.assertRaises(InvalidResourceException):
-            DeploymentPreferenceCollection().add("", dict())
+            DeploymentPreferenceCollection().add("", {})
 
     @patch("boto3.session.Session.region_name", "ap-southeast-1")
     def test_add_when_logical_id_previously_added_raises_value_error(self):
@@ -64,7 +64,10 @@ class TestDeploymentPreferenceCollection(TestCase):
 
     @patch("boto3.session.Session.region_name", "ap-southeast-1")
     def test_deployment_group_with_minimal_parameters(self):
-        expected_deployment_group = CodeDeployDeploymentGroup(self.function_logical_id + "DeploymentGroup")
+        expected_deployment_group = CodeDeployDeploymentGroup(
+            f"{self.function_logical_id}DeploymentGroup"
+        )
+
         expected_deployment_group.ApplicationName = {"Ref": CODEDEPLOY_APPLICATION_LOGICAL_ID}
         expected_deployment_group.AutoRollbackConfiguration = {
             "Enabled": True,
@@ -138,7 +141,10 @@ class TestDeploymentPreferenceCollection(TestCase):
 
     @patch("boto3.session.Session.region_name", "ap-southeast-1")
     def test_deployment_group_with_all_parameters(self):
-        expected_deployment_group = CodeDeployDeploymentGroup(self.function_logical_id + "DeploymentGroup")
+        expected_deployment_group = CodeDeployDeploymentGroup(
+            f"{self.function_logical_id}DeploymentGroup"
+        )
+
         expected_deployment_group.AlarmConfiguration = {
             "Enabled": True,
             "Alarms": [{"Name": {"Ref": "alarm1"}}, {"Name": {"Ref": "alarm2"}}],
@@ -294,7 +300,7 @@ class TestDeploymentPreferenceCollection(TestCase):
             deployment_preference_collection.deployment_group(self.function_logical_id)
         self.assertEqual(
             e.exception.message,
-            "Resource with id [{}] is invalid. Alarms must be a list".format(self.function_logical_id),
+            f"Resource with id [{self.function_logical_id}] is invalid. Alarms must be a list",
         )
 
     @patch("boto3.session.Session.region_name", "ap-southeast-1")
@@ -309,7 +315,7 @@ class TestDeploymentPreferenceCollection(TestCase):
             deployment_preference_collection.deployment_group(self.function_logical_id)
         self.assertEqual(
             e.exception.message,
-            "Resource with id [{}] is invalid. Fn::If requires 3 arguments".format(self.function_logical_id),
+            f"Resource with id [{self.function_logical_id}] is invalid. Fn::If requires 3 arguments",
         )
 
     @patch("boto3.session.Session.region_name", "ap-southeast-1")
@@ -324,7 +330,7 @@ class TestDeploymentPreferenceCollection(TestCase):
             deployment_preference_collection.deployment_group(self.function_logical_id)
         self.assertEqual(
             e.exception.message,
-            "Resource with id [{}] is invalid. Fn::If requires 3 arguments".format(self.function_logical_id),
+            f"Resource with id [{self.function_logical_id}] is invalid. Fn::If requires 3 arguments",
         )
 
     @patch("boto3.session.Session.region_name", "ap-southeast-1")
@@ -332,9 +338,12 @@ class TestDeploymentPreferenceCollection(TestCase):
         expected_update_policy = {
             "CodeDeployLambdaAliasUpdate": {
                 "ApplicationName": {"Ref": CODEDEPLOY_APPLICATION_LOGICAL_ID},
-                "DeploymentGroupName": {"Ref": self.function_logical_id + "DeploymentGroup"},
+                "DeploymentGroupName": {
+                    "Ref": f"{self.function_logical_id}DeploymentGroup"
+                },
             }
         }
+
 
         deployment_preference_collection = DeploymentPreferenceCollection()
         deployment_preference_collection.add(self.function_logical_id, {"Type": "CANARY"})
@@ -347,11 +356,14 @@ class TestDeploymentPreferenceCollection(TestCase):
         expected_update_polcy = {
             "CodeDeployLambdaAliasUpdate": {
                 "ApplicationName": {"Ref": CODEDEPLOY_APPLICATION_LOGICAL_ID},
-                "DeploymentGroupName": {"Ref": self.function_logical_id + "DeploymentGroup"},
+                "DeploymentGroupName": {
+                    "Ref": f"{self.function_logical_id}DeploymentGroup"
+                },
                 "BeforeAllowTrafficHook": self.pre_traffic_hook_global,
                 "AfterAllowTrafficHook": self.post_traffic_host_global,
             }
         }
+
 
         deployment_preference_collection = DeploymentPreferenceCollection()
         deployment_preference_collection.add(self.function_logical_id, self.global_deployment_preference_yaml_dict())
@@ -399,21 +411,20 @@ class TestDeploymentPreferenceCollection(TestCase):
         self.assertEqual(enabled_logical_id, enabled_logical_ids[0])
 
     def global_deployment_preference_yaml_dict(self):
-        deployment_preference_yaml_dict = dict()
-        deployment_preference_yaml_dict["Type"] = self.deployment_type_global
-        deployment_preference_yaml_dict["Hooks"] = {
-            "PreTraffic": self.pre_traffic_hook_global,
-            "PostTraffic": self.post_traffic_host_global,
+        return {
+            "Type": self.deployment_type_global,
+            "Hooks": {
+                "PreTraffic": self.pre_traffic_hook_global,
+                "PostTraffic": self.post_traffic_host_global,
+            },
+            "Alarms": self.alarms_global,
         }
-        deployment_preference_yaml_dict["Alarms"] = self.alarms_global
-        return deployment_preference_yaml_dict
 
     def global_deployment_preference(self):
-        expected_deployment_preference = DeploymentPreference(
+        return DeploymentPreference(
             self.deployment_type_global,
             self.pre_traffic_hook_global,
             self.post_traffic_host_global,
             self.alarms_global,
             True,
         )
-        return expected_deployment_preference

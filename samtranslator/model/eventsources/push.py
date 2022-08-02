@@ -61,9 +61,12 @@ class PushEventSource(ResourceMacro):
         if prefix is None:
             prefix = self.logical_id
         if suffix.isalnum():
-            permission_logical_id = prefix + "Permission" + suffix
+            permission_logical_id = f"{prefix}Permission{suffix}"
         else:
-            generator = logical_id_generator.LogicalIdGenerator(prefix + "Permission", suffix)
+            generator = logical_id_generator.LogicalIdGenerator(
+                f"{prefix}Permission", suffix
+            )
+
             permission_logical_id = generator.gen()
         lambda_permission = LambdaPermission(
             permission_logical_id, attributes=function.get_passthrough_resource_attributes()
@@ -111,12 +114,9 @@ class Schedule(PushEventSource):
         if not function:
             raise TypeError("Missing required keyword argument: function")
 
-        resources = []
-
         passthrough_resource_attributes = function.get_passthrough_resource_attributes()
         events_rule = EventsRule(self.logical_id, attributes=passthrough_resource_attributes)
-        resources.append(events_rule)
-
+        resources = [events_rule]
         events_rule.ScheduleExpression = self.Schedule
         if self.Enabled is not None:
             events_rule.State = "ENABLED" if self.Enabled else "DISABLED"
@@ -144,7 +144,11 @@ class Schedule(PushEventSource):
         :returns: the Target property
         :rtype: dict
         """
-        target = {"Arn": function.get_runtime_attr("arn"), "Id": self.logical_id + "LambdaTarget"}
+        target = {
+            "Arn": function.get_runtime_attr("arn"),
+            "Id": f"{self.logical_id}LambdaTarget",
+        }
+
         if self.Input is not None:
             target["Input"] = self.Input
 
@@ -203,8 +207,12 @@ class CloudWatchEvent(PushEventSource):
 
         events_rule.Targets = [self._construct_target(function, dlq_queue_arn)]
 
-        resources.append(events_rule)
-        resources.append(self._construct_permission(function, source_arn=source_arn))
+        resources.extend(
+            (
+                events_rule,
+                self._construct_permission(function, source_arn=source_arn),
+            )
+        )
 
         return resources
 
@@ -214,7 +222,12 @@ class CloudWatchEvent(PushEventSource):
         :returns: the Target property
         :rtype: dict
         """
-        target_id = self.Target["Id"] if self.Target and "Id" in self.Target else self.logical_id + "LambdaTarget"
+        target_id = (
+            self.Target["Id"]
+            if self.Target and "Id" in self.Target
+            else f"{self.logical_id}LambdaTarget"
+        )
+
         target = {"Arn": function.get_runtime_attr("arn"), "Id": target_id}
         if self.Input is not None:
             target["Input"] = self.Input
@@ -278,16 +291,13 @@ class S3(PushEventSource):
         bucket = kwargs["bucket"]
         bucket_id = kwargs["bucket_id"]
 
-        resources = []
-
         source_account = ref("AWS::AccountId")
         permission = self._construct_permission(function, source_account=source_account)
         if CONDITION in permission.resource_attributes:
             self._depend_on_lambda_permissions_using_tag(bucket, permission)
         else:
             self._depend_on_lambda_permissions(bucket, permission)
-        resources.append(permission)
-
+        resources = [permission]
         # NOTE: `bucket` here is a dictionary representing the S3 Bucket resource in your SAM template. If there are
         # multiple S3 Events attached to the same bucket, we will update the Bucket resource with notification
         # configuration for each event. This is the reason why we continue to use existing bucket dict and append onto
@@ -446,7 +456,7 @@ class SNS(PushEventSource):
             )
             event_source = self._inject_sqs_event_source_mapping(function, role, queue_arn)
 
-            resources = resources + event_source
+            resources += event_source
             resources.append(queue)
             resources.append(queue_policy)
             resources.append(subscription)
@@ -469,7 +479,7 @@ class SNS(PushEventSource):
         subscription = self._inject_subscription("sqs", queue_arn, self.Topic, self.Region, self.FilterPolicy, function)
         event_source = self._inject_sqs_event_source_mapping(function, role, queue_arn, batch_size, enabled)
 
-        resources = resources + event_source
+        resources += event_source
         resources.append(queue_policy)
         resources.append(subscription)
         return resources
@@ -489,12 +499,17 @@ class SNS(PushEventSource):
         return subscription
 
     def _inject_sqs_queue(self, function):
-        return SQSQueue(self.logical_id + "Queue", attributes=function.get_passthrough_resource_attributes())
+        return SQSQueue(
+            f"{self.logical_id}Queue",
+            attributes=function.get_passthrough_resource_attributes(),
+        )
 
     def _inject_sqs_event_source_mapping(self, function, role, queue_arn, batch_size=None, enabled=None):
         event_source = SQS(
-            self.logical_id + "EventSourceMapping", attributes=function.get_passthrough_resource_attributes()
+            f"{self.logical_id}EventSourceMapping",
+            attributes=function.get_passthrough_resource_attributes(),
         )
+
         event_source.Queue = queue_arn
         event_source.BatchSize = batch_size or 10
         event_source.Enabled = enabled or True
@@ -502,8 +517,10 @@ class SNS(PushEventSource):
 
     def _inject_sqs_queue_policy(self, topic_arn, queue_arn, queue_url, function, logical_id=None):
         policy = SQSQueuePolicy(
-            logical_id or self.logical_id + "QueuePolicy", attributes=function.get_passthrough_resource_attributes()
+            logical_id or f"{self.logical_id}QueuePolicy",
+            attributes=function.get_passthrough_resource_attributes(),
         )
+
 
         policy.PolicyDocument = SQSQueuePolicies.sns_topic_send_message_role_policy(topic_arn, queue_arn)
         policy.Queues = [queue_url]
@@ -548,28 +565,26 @@ class Api(PushEventSource):
         if isinstance(rest_api_id, string_types):
 
             if (
-                rest_api_id in resources
-                and "Properties" in resources[rest_api_id]
-                and "StageName" in resources[rest_api_id]["Properties"]
+                rest_api_id not in resources
+                or "Properties" not in resources[rest_api_id]
+                or "StageName" not in resources[rest_api_id]["Properties"]
             ):
-
-                explicit_api = resources[rest_api_id]["Properties"]
-                permitted_stage = explicit_api["StageName"]
-
-                # Stage could be a intrinsic, in which case leave the suffix to default value
-                if isinstance(permitted_stage, string_types):
-                    if not permitted_stage:
-                        raise InvalidResourceException(rest_api_id, "StageName cannot be empty.")
-                    stage_suffix = permitted_stage
-                else:
-                    stage_suffix = "Stage"
-
-            else:
                 # RestApiId is a string, not an intrinsic, but we did not find a valid API resource for this ID
                 raise InvalidEventException(
                     self.relative_id,
                     "RestApiId property of Api event must reference a valid " "resource in the same template.",
                 )
+
+            explicit_api = resources[rest_api_id]["Properties"]
+            permitted_stage = explicit_api["StageName"]
+
+            # Stage could be a intrinsic, in which case leave the suffix to default value
+            if isinstance(permitted_stage, string_types):
+                if not permitted_stage:
+                    raise InvalidResourceException(rest_api_id, "StageName cannot be empty.")
+                stage_suffix = permitted_stage
+            else:
+                stage_suffix = "Stage"
 
         return {"explicit_api": explicit_api, "explicit_api_stage": {"suffix": stage_suffix}}
 
@@ -604,8 +619,6 @@ class Api(PushEventSource):
         return resources
 
     def _get_permissions(self, resources_to_link):
-        permissions = []
-
         # By default, implicit APIs get a stage called Prod. If the API event refers to an
         # explicit API using RestApiId property, we should grab the stage name of the explicit API
         # all stages for an API are given permission
@@ -615,8 +628,7 @@ class Api(PushEventSource):
             suffix = resources_to_link["explicit_api_stage"]["suffix"]
         self.Stage = suffix
 
-        permissions.append(self._get_permission(resources_to_link, permitted_stage, suffix))
-        return permissions
+        return [self._get_permission(resources_to_link, permitted_stage, suffix)]
 
     def _get_permission(self, resources_to_link, stage, suffix):
         # It turns out that APIGW doesn't like trailing slashes in paths (#665)
@@ -714,15 +726,16 @@ class Api(PushEventSource):
                             ),
                         )
 
-                    if method_authorizer == "NONE":
-                        if not api_auth or not api_auth.get("DefaultAuthorizer"):
-                            raise InvalidEventException(
-                                self.relative_id,
-                                "Unable to set Authorizer on API method [{method}] for path [{path}] because 'NONE' "
-                                "is only a valid value when a DefaultAuthorizer on the API is specified.".format(
-                                    method=self.Method, path=self.Path
-                                ),
-                            )
+                    if method_authorizer == "NONE" and (
+                        not api_auth or not api_auth.get("DefaultAuthorizer")
+                    ):
+                        raise InvalidEventException(
+                            self.relative_id,
+                            "Unable to set Authorizer on API method [{method}] for path [{path}] because 'NONE' "
+                            "is only a valid value when a DefaultAuthorizer on the API is specified.".format(
+                                method=self.Method, path=self.Path
+                            ),
+                        )
 
             if self.Auth.get("AuthorizationScopes") and not isinstance(self.Auth.get("AuthorizationScopes"), list):
                 raise InvalidEventException(
@@ -754,9 +767,7 @@ class Api(PushEventSource):
                     editor.add_custom_statements(resource_policy.get("CustomStatements"))
 
         if self.RequestModel:
-            method_model = self.RequestModel.get("Model")
-
-            if method_model:
+            if method_model := self.RequestModel.get("Model"):
                 api_models = api.get("Models")
                 if not api_models:
                     raise InvalidEventException(
@@ -836,8 +847,9 @@ class Api(PushEventSource):
                             "e.g 'method.request.header.Authorization'.",
                         )
 
-                    if not isinstance(parameter_value, dict) or not all(
-                        key in REQUEST_PARAMETER_PROPERTIES for key in parameter_value.keys()
+                    if not isinstance(parameter_value, dict) or any(
+                        key not in REQUEST_PARAMETER_PROPERTIES
+                        for key in parameter_value.keys()
                     ):
                         raise InvalidEventException(
                             self.relative_id,
@@ -846,8 +858,8 @@ class Api(PushEventSource):
                         )
 
                     settings = default_value.copy()
-                    settings.update(parameter_value)
-                    settings.update({"Name": parameter_name})
+                    settings |= parameter_value
+                    settings["Name"] = parameter_name
 
                     parameters.append(settings)
 
@@ -861,7 +873,7 @@ class Api(PushEventSource):
                         )
 
                     settings = default_value.copy()
-                    settings.update({"Name": parameter})
+                    settings["Name"] = parameter
 
                     parameters.append(settings)
 
@@ -885,15 +897,10 @@ class AlexaSkill(PushEventSource):
     property_types = {"SkillId": PropertyType(False, is_str())}
 
     def to_cloudformation(self, **kwargs):
-        function = kwargs.get("function")
-
-        if not function:
+        if function := kwargs.get("function"):
+            return [self._construct_permission(function, event_source_token=self.SkillId)]
+        else:
             raise TypeError("Missing required keyword argument: function")
-
-        resources = []
-        resources.append(self._construct_permission(function, event_source_token=self.SkillId))
-
-        return resources
 
 
 class IoTRule(PushEventSource):
@@ -908,8 +915,6 @@ class IoTRule(PushEventSource):
         if not function:
             raise TypeError("Missing required keyword argument: function")
 
-        resources = []
-
         resource = "rule/${RuleName}"
 
         partition = ArnGenerator.get_partition_name()
@@ -919,10 +924,12 @@ class IoTRule(PushEventSource):
         )
         source_account = fnSub("${AWS::AccountId}")
 
-        resources.append(self._construct_permission(function, source_arn=source_arn, source_account=source_account))
-        resources.append(self._construct_iot_rule(function))
-
-        return resources
+        return [
+            self._construct_permission(
+                function, source_arn=source_arn, source_account=source_account
+            ),
+            self._construct_iot_rule(function),
+        ]
 
     def _construct_iot_rule(self, function):
         rule = IotTopicRule(self.logical_id, attributes=function.get_passthrough_resource_attributes())
@@ -979,15 +986,14 @@ class Cognito(PushEventSource):
         userpool = kwargs["userpool"]
         userpool_id = kwargs["userpool_id"]
 
-        resources = []
         source_arn = fnGetAtt(userpool_id, "Arn")
         lambda_permission = self._construct_permission(
-            function, source_arn=source_arn, prefix=function.logical_id + "Cognito"
+            function, source_arn=source_arn, prefix=f"{function.logical_id}Cognito"
         )
+
         for attribute, value in function.get_passthrough_resource_attributes().items():
             lambda_permission.set_resource_attribute(attribute, value)
-        resources.append(lambda_permission)
-
+        resources = [lambda_permission]
         self._inject_lambda_config(function, userpool)
         resources.append(CognitoUserPool.from_dict(userpool_id, userpool))
         return resources
@@ -1080,8 +1086,7 @@ class HttpApi(PushEventSource):
         # Give permission to all stages by default
         permitted_stage = "*"
 
-        permission = self._get_permission(resources_to_link, permitted_stage)
-        if permission:
+        if permission := self._get_permission(resources_to_link, permitted_stage):
             permissions.append(permission)
         return permissions
 
@@ -1112,7 +1117,7 @@ class HttpApi(PushEventSource):
             path = OpenApiEditor.get_path_without_trailing_slash(path)
 
         # Handle case where Method is already the ANY ApiGateway extension
-        if self.Method.lower() == "any" or self.Method.lower() == OpenApiEditor._X_ANY_METHOD:
+        if self.Method.lower() in ["any", OpenApiEditor._X_ANY_METHOD]:
             method = "*"
         else:
             method = self.Method.upper()
@@ -1164,8 +1169,7 @@ class HttpApi(PushEventSource):
             self._add_auth_to_openapi_integration(api, editor)
         if self.TimeoutInMillis:
             editor.add_timeout_to_method(api=api, path=self.Path, method_name=self.Method, timeout=self.TimeoutInMillis)
-        path_parameters = re.findall("{(.*?)}", self.Path)
-        if path_parameters:
+        if path_parameters := re.findall("{(.*?)}", self.Path):
             editor.add_path_parameters_to_method(
                 api=api, path=self.Path, method_name=self.Method, path_parameters=path_parameters
             )

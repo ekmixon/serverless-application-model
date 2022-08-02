@@ -58,7 +58,10 @@ class TestStateMachineWithApi(BaseTest):
         self.assertEqual(method_integration["credentials"], role_arn)
 
         # checking if the uri in the API integration is set for Step Functions State Machine execution
-        expected_integration_uri = "arn:" + partition + ":apigateway:" + region + ":states:action/StartExecution"
+        expected_integration_uri = (
+            f"arn:{partition}:apigateway:{region}:states:action/StartExecution"
+        )
+
         self.assertEqual(method_integration["uri"], expected_integration_uri)
 
         # checking if the role used by the event rule to trigger the state machine execution is correct

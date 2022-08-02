@@ -77,7 +77,7 @@ class SamPlugins(object):
             raise ValueError("Plugin must be implemented as a subclass of BasePlugin class")
 
         if self.is_registered(plugin.name):
-            raise ValueError("Plugin with name {} is already registered".format(plugin.name))
+            raise ValueError(f"Plugin with name {plugin.name} is already registered")
 
         self._plugins.append(plugin)
 
@@ -99,11 +99,7 @@ class SamPlugins(object):
         :return samtranslator.plugins.BasePlugin: Returns the plugin object if found. None, otherwise
         """
 
-        for p in self._plugins:
-            if p.name == plugin_name:
-                return p
-
-        return None
+        return next((p for p in self._plugins if p.name == plugin_name), None)
 
     def act(self, event, *args, **kwargs):
         """
@@ -120,14 +116,15 @@ class SamPlugins(object):
         if not isinstance(event, LifeCycleEvents):
             raise ValueError("'event' must be an instance of LifeCycleEvents class")
 
-        method_name = "on_" + event.name
+        method_name = f"on_{event.name}"
 
         for plugin in self._plugins:
 
             if not hasattr(plugin, method_name):
                 raise NameError(
-                    "'{}' method is not found in the plugin with name '{}'".format(method_name, plugin.name)
+                    f"'{method_name}' method is not found in the plugin with name '{plugin.name}'"
                 )
+
 
             try:
                 getattr(plugin, method_name)(*args, **kwargs)

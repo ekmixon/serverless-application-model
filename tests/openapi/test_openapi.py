@@ -169,7 +169,7 @@ class TestOpenApiEditor_add_path(TestCase):
 
         self.assertFalse(self.editor.has_path(path, method))
         self.editor.add_path(path, method)
-        self.assertTrue(self.editor.has_path(path, method), "must add for " + case)
+        self.assertTrue(self.editor.has_path(path, method), f"must add for {case}")
         self.assertEqual(self.editor.openapi["paths"][path][method], {})
 
     def test_must_raise_non_dict_path_values(self):
@@ -350,7 +350,10 @@ class TestOpenApiEditor_is_valid(TestCase):
         ]
     )
     def test_must_fail_for_invalid_values(self, data, case):
-        self.assertFalse(OpenApiEditor.is_valid(data), "openapi dictionary with {} must not be valid".format(case))
+        self.assertFalse(
+            OpenApiEditor.is_valid(data),
+            f"openapi dictionary with {case} must not be valid",
+        )
 
 
 class TestOpenApiEditor_add_auth(TestCase):

@@ -11,7 +11,7 @@ from samtranslator.feature_toggle.feature_toggle import (
 from samtranslator.feature_toggle.dialup import ToggleDialup, SimpleAccountPercentileDialup, DisabledDialup
 
 my_path = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, my_path + "/..")
+sys.path.insert(0, f"{my_path}/..")
 
 
 class TestFeatureToggle(TestCase):

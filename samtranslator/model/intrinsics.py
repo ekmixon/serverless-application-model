@@ -11,9 +11,7 @@ def fnJoin(delimiter, values):
 
 
 def fnSub(string, variables=None):
-    if variables:
-        return {"Fn::Sub": [string, variables]}
-    return {"Fn::Sub": string}
+    return {"Fn::Sub": [string, variables]} if variables else {"Fn::Sub": string}
 
 
 def fnOr(argument_list):
@@ -44,14 +42,12 @@ def make_condition_or_list(conditions_list):
 
 def make_or_condition(conditions_list):
     or_list = make_condition_or_list(conditions_list)
-    condition = fnOr(or_list)
-    return condition
+    return fnOr(or_list)
 
 
 def make_and_condition(conditions_list):
     and_list = make_condition_or_list(conditions_list)
-    condition = fnAnd(and_list)
-    return condition
+    return fnAnd(and_list)
 
 
 def calculate_number_of_conditions(conditions_length, max_conditions):
@@ -69,8 +65,7 @@ def calculate_number_of_conditions(conditions_length, max_conditions):
     :param int max_conditions: maximum number of conditions that can be put in an Fn::Or statement
     :return: the number (int) of necessary additional conditions.
     """
-    num_conditions = 1 + (conditions_length - 2) // (max_conditions - 1)
-    return num_conditions
+    return 1 + (conditions_length - 2) // (max_conditions - 1)
 
 
 def make_combined_condition(conditions_list, condition_name):
@@ -100,7 +95,7 @@ def make_combined_condition(conditions_list, condition_name):
         new_condition_name = condition_name
         # If more than 1 new condition is needed, add a number to the end of the name
         if zero_based_num_conditions > 0:
-            new_condition_name = "{}{}".format(condition_name, zero_based_num_conditions)
+            new_condition_name = f"{condition_name}{zero_based_num_conditions}"
             zero_based_num_conditions -= 1
         new_condition_content = make_or_condition(conditions_list[:max_conditions])
         conditions_list = conditions_list[max_conditions:]

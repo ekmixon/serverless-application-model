@@ -29,9 +29,7 @@ class CloudWatchLogs(PushEventSource):
         source_arn = self.get_source_arn()
         permission = self._construct_permission(function, source_arn=source_arn)
         subscription_filter = self.get_subscription_filter(function, permission)
-        resources = [permission, subscription_filter]
-
-        return resources
+        return [permission, subscription_filter]
 
     def get_source_arn(self):
         resource = "log-group:${__LogGroupName__}:*"

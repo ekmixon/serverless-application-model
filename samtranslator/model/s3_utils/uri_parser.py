@@ -40,7 +40,7 @@ def to_s3_uri(code_dict):
         raise TypeError("Code location should be a dictionary")
 
     if version:
-        uri += "?versionId=" + version
+        uri += f"?versionId={version}"
 
     return uri
 
@@ -57,8 +57,10 @@ def construct_image_code_object(image_uri, logical_id, property_name):
     """
     if not image_uri:
         raise InvalidResourceException(
-            logical_id, "'{}' requires that a image hosted at a registry be specified.".format(property_name)
+            logical_id,
+            f"'{property_name}' requires that a image hosted at a registry be specified.",
         )
+
 
     return {"ImageUri": image_uri}
 
@@ -77,8 +79,10 @@ def construct_s3_location_object(location_uri, logical_id, property_name):
         if not location_uri.get("Bucket") or not location_uri.get("Key"):
             # location_uri is a dictionary but does not contain Bucket or Key property
             raise InvalidResourceException(
-                logical_id, "'{}' requires Bucket and Key properties to be specified.".format(property_name)
+                logical_id,
+                f"'{property_name}' requires Bucket and Key properties to be specified.",
             )
+
 
         s3_pointer = location_uri
 
@@ -89,10 +93,9 @@ def construct_s3_location_object(location_uri, logical_id, property_name):
         if s3_pointer is None:
             raise InvalidResourceException(
                 logical_id,
-                "'{}' is not a valid S3 Uri of the form "
-                "'s3://bucket/key' with optional versionId query "
-                "parameter.".format(property_name),
+                f"'{property_name}' is not a valid S3 Uri of the form 's3://bucket/key' with optional versionId query parameter.",
             )
+
 
     code = {"S3Bucket": s3_pointer["Bucket"], "S3Key": s3_pointer["Key"]}
     if "Version" in s3_pointer:

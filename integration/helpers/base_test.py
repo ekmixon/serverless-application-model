@@ -107,16 +107,17 @@ class BaseTest(TestCase):
     @classmethod
     def _get_s3_uri(cls, file_name, uri_type):
         if uri_type == "s3":
-            return "s3://{}/{}".format(cls.s3_bucket_name, file_name)
+            return f"s3://{cls.s3_bucket_name}/{file_name}"
 
         if cls.my_region == "us-east-1":
-            return "https://s3.amazonaws.com/{}/{}".format(cls.s3_bucket_name, file_name)
+            return f"https://s3.amazonaws.com/{cls.s3_bucket_name}/{file_name}"
         if cls.my_region == "us-iso-east-1":
-            return "https://s3.us-iso-east-1.c2s.ic.gov/{}/{}".format(cls.s3_bucket_name, file_name)
+            return f"https://s3.us-iso-east-1.c2s.ic.gov/{cls.s3_bucket_name}/{file_name}"
         if cls.my_region == "us-isob-east-1":
-            return "https://s3.us-isob-east-1.sc2s.sgov.gov/{}/{}".format(cls.s3_bucket_name, file_name)
+            return f"https://s3.us-isob-east-1.sc2s.sgov.gov/{cls.s3_bucket_name}/{file_name}"
 
-        return "https://s3-{}.amazonaws.com/{}/{}".format(cls.my_region, cls.s3_bucket_name, file_name)
+
+        return f"https://s3-{cls.my_region}.amazonaws.com/{cls.s3_bucket_name}/{file_name}"
 
     def setUp(self):
         self.deployer = Deployer(self.client_provider.cfn_client)
@@ -143,8 +144,14 @@ class BaseTest(TestCase):
         folder, file_name = file_path.split("/")
         # add a folder name before file name to avoid possible collisions between
         # files in the single and combination folder
-        self.output_file_path = str(Path(self.output_dir, "cfn_" + folder + "_" + file_name + ".yaml"))
-        self.expected_resource_path = str(Path(self.expected_dir, folder, file_name + ".json"))
+        self.output_file_path = str(
+            Path(self.output_dir, f"cfn_{folder}_{file_name}.yaml")
+        )
+
+        self.expected_resource_path = str(
+            Path(self.expected_dir, folder, f"{file_name}.json")
+        )
+
         self.stack_name = STACK_NAME_PREFIX + file_name.replace("_", "-") + "-" + generate_suffix()
 
         self._fill_template(folder, file_name)
@@ -171,7 +178,10 @@ class BaseTest(TestCase):
         folder, file_name = file_path.split("/")
         # add a folder name before file name to avoid possible collisions between
         # files in the single and combination folder
-        self.output_file_path = str(Path(self.output_dir, "cfn_" + folder + "_" + file_name + ".yaml"))
+        self.output_file_path = str(
+            Path(self.output_dir, f"cfn_{folder}_{file_name}.yaml")
+        )
+
 
         self._fill_template(folder, file_name)
         self.transform_template()
@@ -195,8 +205,14 @@ class BaseTest(TestCase):
         folder, file_name = file_path.split("/")
         # add a folder name before file name to avoid possible collisions between
         # files in the single and combination folder
-        self.output_file_path = str(Path(self.output_dir, "cfn_" + folder + "_" + file_name + ".yaml"))
-        self.expected_resource_path = str(Path(self.expected_dir, folder, file_name + ".json"))
+        self.output_file_path = str(
+            Path(self.output_dir, f"cfn_{folder}_{file_name}.yaml")
+        )
+
+        self.expected_resource_path = str(
+            Path(self.expected_dir, folder, f"{file_name}.json")
+        )
+
 
         self._fill_template(folder, file_name)
         self.transform_template()
@@ -235,18 +251,21 @@ class BaseTest(TestCase):
         if not stack_resources:
             stack_resources = self.stack_resources
 
-        resources = []
-        for res in stack_resources["StackResourceSummaries"]:
-            if res["ResourceType"] == resource_type:
-                resources.append(res)
-
-        return resources
+        return [
+            res
+            for res in stack_resources["StackResourceSummaries"]
+            if res["ResourceType"] == resource_type
+        ]
 
     def get_stack_output(self, output_key):
-        for output in self.stack_description["Stacks"][0]["Outputs"]:
-            if output["OutputKey"] == output_key:
-                return output
-        return None
+        return next(
+            (
+                output
+                for output in self.stack_description["Stacks"][0]["Outputs"]
+                if output["OutputKey"] == output_key
+            ),
+            None,
+        )
 
     def get_stack_tags(self, output_name):
         resource_arn = self.get_stack_output(output_name)["OutputValue"]
@@ -254,27 +273,29 @@ class BaseTest(TestCase):
 
     def get_stack_deployment_ids(self):
         resources = self.get_stack_resources("AWS::ApiGateway::Deployment")
-        ids = []
-        for res in resources:
-            ids.append(res["LogicalResourceId"])
-
-        return ids
+        return [res["LogicalResourceId"] for res in resources]
 
     def get_api_stack_stages(self):
         resources = self.get_stack_resources("AWS::ApiGateway::RestApi")
 
-        if not resources:
-            return []
-
-        return self.client_provider.api_client.get_stages(restApiId=resources[0]["PhysicalResourceId"])["item"]
+        return (
+            self.client_provider.api_client.get_stages(
+                restApiId=resources[0]["PhysicalResourceId"]
+            )["item"]
+            if resources
+            else []
+        )
 
     def get_api_v2_stack_stages(self):
         resources = self.get_stack_resources("AWS::ApiGatewayV2::Api")
 
-        if not resources:
-            return []
-
-        return self.client_provider.api_v2_client.get_stages(ApiId=resources[0]["PhysicalResourceId"])["Items"]
+        return (
+            self.client_provider.api_v2_client.get_stages(
+                ApiId=resources[0]["PhysicalResourceId"]
+            )["Items"]
+            if resources
+            else []
+        )
 
     def get_api_v2_endpoint(self, logical_id):
         api_id = self.get_physical_id_by_logical_id(logical_id)
@@ -284,10 +305,13 @@ class BaseTest(TestCase):
     def get_stack_nested_stack_resources(self):
         resources = self.get_stack_resources("AWS::CloudFormation::Stack")
 
-        if not resources:
-            return None
-
-        return self.client_provider.cfn_client.list_stack_resources(StackName=resources[0]["PhysicalResourceId"])
+        return (
+            self.client_provider.cfn_client.list_stack_resources(
+                StackName=resources[0]["PhysicalResourceId"]
+            )
+            if resources
+            else None
+        )
 
     def get_stack_outputs(self):
         if not self.stack_description:
@@ -296,44 +320,60 @@ class BaseTest(TestCase):
         return {output["OutputKey"]: output["OutputValue"] for output in output_list}
 
     def get_resource_status_by_logical_id(self, logical_id):
-        if not self.stack_resources:
-            return None
-
-        for res in self.stack_resources["StackResourceSummaries"]:
-            if res["LogicalResourceId"] == logical_id:
-                return res["ResourceStatus"]
-
-        return None
+        return (
+            next(
+                (
+                    res["ResourceStatus"]
+                    for res in self.stack_resources["StackResourceSummaries"]
+                    if res["LogicalResourceId"] == logical_id
+                ),
+                None,
+            )
+            if self.stack_resources
+            else None
+        )
 
     def get_physical_id_by_type(self, resource_type):
-        if not self.stack_resources:
-            return None
-
-        for res in self.stack_resources["StackResourceSummaries"]:
-            if res["ResourceType"] == resource_type:
-                return res["PhysicalResourceId"]
-
-        return None
+        return (
+            next(
+                (
+                    res["PhysicalResourceId"]
+                    for res in self.stack_resources["StackResourceSummaries"]
+                    if res["ResourceType"] == resource_type
+                ),
+                None,
+            )
+            if self.stack_resources
+            else None
+        )
 
     def get_logical_id_by_type(self, resource_type):
-        if not self.stack_resources:
-            return None
-
-        for res in self.stack_resources["StackResourceSummaries"]:
-            if res["ResourceType"] == resource_type:
-                return res["LogicalResourceId"]
-
-        return None
+        return (
+            next(
+                (
+                    res["LogicalResourceId"]
+                    for res in self.stack_resources["StackResourceSummaries"]
+                    if res["ResourceType"] == resource_type
+                ),
+                None,
+            )
+            if self.stack_resources
+            else None
+        )
 
     def get_physical_id_by_logical_id(self, logical_id):
-        if not self.stack_resources:
-            return None
-
-        for res in self.stack_resources["StackResourceSummaries"]:
-            if res["LogicalResourceId"] == logical_id:
-                return res["PhysicalResourceId"]
-
-        return None
+        return (
+            next(
+                (
+                    res["PhysicalResourceId"]
+                    for res in self.stack_resources["StackResourceSummaries"]
+                    if res["LogicalResourceId"] == logical_id
+                ),
+                None,
+            )
+            if self.stack_resources
+            else None
+        )
 
     def _fill_template(self, folder, file_name):
         """
@@ -346,10 +386,13 @@ class BaseTest(TestCase):
         file_name : string
             Template file name
         """
-        input_file_path = str(Path(self.template_dir, folder, file_name + ".yaml"))
+        input_file_path = str(Path(self.template_dir, folder, f"{file_name}.yaml"))
         # add a folder name before file name to avoid possible collisions between
         # files in the single and combination folder
-        updated_template_path = str(Path(self.output_dir, "sub_" + folder + "_" + file_name + ".yaml"))
+        updated_template_path = str(
+            Path(self.output_dir, f"sub_{folder}_{file_name}.yaml")
+        )
+
         with open(input_file_path) as f:
             data = f.read()
         for key, _ in self.code_key_to_file.items():
@@ -424,9 +467,9 @@ class BaseTest(TestCase):
         """
         # verify if the stack was successfully created
         self.assertEqual(self.stack_description["Stacks"][0]["StackStatus"], end_state)
-        # verify if the stack contains the expected resources
-        error = verify_stack_resources(self.expected_resource_path, self.stack_resources)
-        if error:
+        if error := verify_stack_resources(
+            self.expected_resource_path, self.stack_resources
+        ):
             self.fail(error)
 
     def verify_get_request_response(self, url, expected_status_code):
@@ -440,16 +483,21 @@ class BaseTest(TestCase):
         expected_status_code : string
             the expected status code
         """
-        print("Making request to " + url)
+        print(f"Making request to {url}")
         response = requests.get(url)
-        self.assertEqual(response.status_code, expected_status_code, " must return HTTP " + str(expected_status_code))
+        self.assertEqual(
+            response.status_code,
+            expected_status_code,
+            f" must return HTTP {str(expected_status_code)}",
+        )
+
         return response
 
     def get_default_test_template_parameters(self):
         """
         get the default template parameters
         """
-        parameters = [
+        return [
             {
                 "ParameterKey": "Bucket",
                 "ParameterValue": self.s3_bucket_name,
@@ -469,4 +517,3 @@ class BaseTest(TestCase):
                 "ResolvedValue": "string",
             },
         ]
-        return parameters

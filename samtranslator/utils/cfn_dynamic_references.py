@@ -11,7 +11,6 @@ def is_dynamic_reference(input):
     :return: True, if yes
     """
     pattern = re.compile("^{{resolve:([a-z-]+):(.+)}}$")
-    if input is not None and isinstance(input, str):
-        if pattern.match(input):
-            return True
-    return False
+    return bool(
+        input is not None and isinstance(input, str) and pattern.match(input)
+    )

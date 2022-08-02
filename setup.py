@@ -39,7 +39,7 @@ def read(*filenames, **kwargs):
 
 def read_version():
     content = read(os.path.join(os.path.dirname(__file__), "samtranslator", "__init__.py"))
-    return re.search(r"__version__ = \"([^']+)\"", content).group(1)
+    return re.search(r"__version__ = \"([^']+)\"", content)[1]
 
 
 def read_requirements(req="base.txt"):

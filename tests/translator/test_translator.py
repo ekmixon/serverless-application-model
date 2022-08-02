@@ -24,8 +24,8 @@ from samtranslator.translator.transform import transform
 from mock import Mock, MagicMock, patch
 
 BASE_PATH = os.path.dirname(__file__)
-INPUT_FOLDER = BASE_PATH + "/input"
-OUTPUT_FOLDER = BASE_PATH + "/output"
+INPUT_FOLDER = f"{BASE_PATH}/input"
+OUTPUT_FOLDER = f"{BASE_PATH}/output"
 # Do not sort AWS::Serverless::Function Layers Property.
 # Order of Layers is an important attribute and shouldn't be changed.
 DO_NOT_SORT = ["Layers"]
@@ -54,15 +54,14 @@ def deep_sort_lists(value):
     """
     if isinstance(value, dict):
         return {k: deep_sort_lists(v) for k, v in value.items()}
-    if isinstance(value, list):
-        if sys.version_info.major < 3:
-            # Py2 can sort lists with complex types like dictionaries
-            return sorted((deep_sort_lists(x) for x in value))
-        else:
-            # Py3 cannot sort lists with complex types. Hence a custom comparator function
-            return sorted((deep_sort_lists(x) for x in value), key=cmp_to_key(custom_list_data_comparator))
-    else:
+    if not isinstance(value, list):
         return value
+    if sys.version_info.major < 3:
+        # Py2 can sort lists with complex types like dictionaries
+        return sorted((deep_sort_lists(x) for x in value))
+    else:
+        # Py3 cannot sort lists with complex types. Hence a custom comparator function
+        return sorted((deep_sort_lists(x) for x in value), key=cmp_to_key(custom_list_data_comparator))
 
 
 def custom_list_data_comparator(obj1, obj2):
@@ -100,11 +99,20 @@ def mock_sar_service_call(self, service_call_function, logical_id, *args):
     application_id = args[0]
     status = "ACTIVE"
     if application_id == "no-access":
-        raise InvalidResourceException(logical_id, "Cannot access application: {}.".format(application_id))
+        raise InvalidResourceException(
+            logical_id, f"Cannot access application: {application_id}."
+        )
+
     elif application_id == "non-existent":
-        raise InvalidResourceException(logical_id, "Cannot access application: {}.".format(application_id))
+        raise InvalidResourceException(
+            logical_id, f"Cannot access application: {application_id}."
+        )
+
     elif application_id == "invalid-semver":
-        raise InvalidResourceException(logical_id, "Cannot access application: {}.".format(application_id))
+        raise InvalidResourceException(
+            logical_id, f"Cannot access application: {application_id}."
+        )
+
     elif application_id == 1:
         raise InvalidResourceException(
             logical_id, "Type of property 'ApplicationId' is invalid.".format(application_id)
@@ -121,7 +129,7 @@ def mock_sar_service_call(self, service_call_function, logical_id, *args):
         status = "PREPARING"
     elif application_id == "expired":
         status = "EXPIRED"
-    message = {
+    return {
         "ApplicationId": args[0],
         "CreationTime": "x",
         "ExpirationTime": "x",
@@ -130,7 +138,6 @@ def mock_sar_service_call(self, service_call_function, logical_id, *args):
         "TemplateId": "id-xx-xx",
         "TemplateUrl": "https://awsserverlessrepo-changesets-xxx.s3.amazonaws.com/signed-url",
     }
-    return message
 
 
 # implicit_api, explicit_api, explicit_api_ref, api_cache tests currently have deployment IDs hardcoded in output file.
@@ -140,13 +147,19 @@ def mock_sar_service_call(self, service_call_function, logical_id, *args):
 
 class AbstractTestTranslator(TestCase):
     def _read_input(self, testcase):
-        manifest = yaml_parse(open(os.path.join(INPUT_FOLDER, testcase + ".yaml"), "r"))
+        manifest = yaml_parse(
+            open(os.path.join(INPUT_FOLDER, f"{testcase}.yaml"), "r")
+        )
+
         # To uncover unicode-related bugs, convert dict to JSON string and parse JSON back to dict
         return json.loads(json.dumps(manifest))
 
     def _read_expected_output(self, testcase, partition):
         partition_folder = partition if partition != "aws" else ""
-        expected_filepath = os.path.join(OUTPUT_FOLDER, partition_folder, testcase + ".json")
+        expected_filepath = os.path.join(
+            OUTPUT_FOLDER, partition_folder, f"{testcase}.json"
+        )
+
         return json.load(open(expected_filepath, "r"))
 
     def _compare_transform(self, manifest, expected, partition, region):
@@ -154,13 +167,12 @@ class AbstractTestTranslator(TestCase):
             parameter_values = get_template_parameter_values()
             mock_policy_loader = MagicMock()
             mock_policy_loader.load.return_value = {
-                "AWSLambdaBasicExecutionRole": "arn:{}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole".format(
-                    partition
-                ),
-                "AmazonDynamoDBFullAccess": "arn:{}:iam::aws:policy/AmazonDynamoDBFullAccess".format(partition),
-                "AmazonDynamoDBReadOnlyAccess": "arn:{}:iam::aws:policy/AmazonDynamoDBReadOnlyAccess".format(partition),
-                "AWSLambdaRole": "arn:{}:iam::aws:policy/service-role/AWSLambdaRole".format(partition),
+                "AWSLambdaBasicExecutionRole": f"arn:{partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+                "AmazonDynamoDBFullAccess": f"arn:{partition}:iam::aws:policy/AmazonDynamoDBFullAccess",
+                "AmazonDynamoDBReadOnlyAccess": f"arn:{partition}:iam::aws:policy/AmazonDynamoDBReadOnlyAccess",
+                "AWSLambdaRole": f"arn:{partition}:iam::aws:policy/service-role/AWSLambdaRole",
             }
+
             if partition == "aws":
                 mock_policy_loader.load.return_value[
                     "AWSXrayWriteOnlyAccess"
@@ -168,7 +180,8 @@ class AbstractTestTranslator(TestCase):
             else:
                 mock_policy_loader.load.return_value[
                     "AWSXRayDaemonWriteAccess"
-                ] = "arn:{}:iam::aws:policy/AWSXRayDaemonWriteAccess".format(partition)
+                ] = f"arn:{partition}:iam::aws:policy/AWSXRayDaemonWriteAccess"
+
 
             output_fragment = transform(manifest, parameter_values, mock_policy_loader)
 
@@ -192,7 +205,7 @@ class AbstractTestTranslator(TestCase):
 
         # Find all RestApis in the template
         for logical_id, resource_dict in output_resources.items():
-            if "AWS::ApiGateway::RestApi" == resource_dict.get("Type"):
+            if resource_dict.get("Type") == "AWS::ApiGateway::RestApi":
                 resource_properties = resource_dict.get("Properties", {})
                 if "Body" in resource_properties:
                     self._generate_new_deployment_hash(
@@ -206,7 +219,7 @@ class AbstractTestTranslator(TestCase):
 
         # Collect all APIGW Deployments LogicalIds and generate the new ones
         for logical_id, resource_dict in output_resources.items():
-            if "AWS::ApiGateway::Deployment" == resource_dict.get("Type"):
+            if resource_dict.get("Type") == "AWS::ApiGateway::Deployment":
                 resource_properties = resource_dict.get("Properties", {})
 
                 rest_id = resource_properties.get("RestApiId").get("Ref")
@@ -224,7 +237,7 @@ class AbstractTestTranslator(TestCase):
 
         # Update References to APIGW Deployments
         for logical_id, resource_dict in output_resources.items():
-            if "AWS::ApiGateway::Stage" == resource_dict.get("Type"):
+            if resource_dict.get("Type") == "AWS::ApiGateway::Stage":
                 resource_properties = resource_dict.get("Properties", {})
 
                 rest_id = resource_properties.get("RestApiId", {}).get("Ref", "")
@@ -521,24 +534,29 @@ class TestTranslatorEndToEnd(AbstractTestTranslator):
         partition = partition_with_region[0]
         region = partition_with_region[1]
 
-        manifest = yaml_parse(open(os.path.join(INPUT_FOLDER, testcase + ".yaml"), "r"))
+        manifest = yaml_parse(
+            open(os.path.join(INPUT_FOLDER, f"{testcase}.yaml"), "r")
+        )
+
         # To uncover unicode-related bugs, convert dict to JSON string and parse JSON back to dict
         manifest = json.loads(json.dumps(manifest))
         partition_folder = partition if partition != "aws" else ""
-        expected_filepath = os.path.join(OUTPUT_FOLDER, partition_folder, testcase + ".json")
+        expected_filepath = os.path.join(
+            OUTPUT_FOLDER, partition_folder, f"{testcase}.json"
+        )
+
         expected = json.load(open(expected_filepath, "r"))
 
         with patch("boto3.session.Session.region_name", region):
             parameter_values = get_template_parameter_values()
             mock_policy_loader = MagicMock()
             mock_policy_loader.load.return_value = {
-                "AWSLambdaBasicExecutionRole": "arn:{}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole".format(
-                    partition
-                ),
-                "AmazonDynamoDBFullAccess": "arn:{}:iam::aws:policy/AmazonDynamoDBFullAccess".format(partition),
-                "AmazonDynamoDBReadOnlyAccess": "arn:{}:iam::aws:policy/AmazonDynamoDBReadOnlyAccess".format(partition),
-                "AWSLambdaRole": "arn:{}:iam::aws:policy/service-role/AWSLambdaRole".format(partition),
+                "AWSLambdaBasicExecutionRole": f"arn:{partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+                "AmazonDynamoDBFullAccess": f"arn:{partition}:iam::aws:policy/AmazonDynamoDBFullAccess",
+                "AmazonDynamoDBReadOnlyAccess": f"arn:{partition}:iam::aws:policy/AmazonDynamoDBReadOnlyAccess",
+                "AWSLambdaRole": f"arn:{partition}:iam::aws:policy/service-role/AWSLambdaRole",
             }
+
 
             output_fragment = transform(manifest, parameter_values, mock_policy_loader)
 
@@ -581,24 +599,29 @@ class TestTranslatorEndToEnd(AbstractTestTranslator):
         partition = partition_with_region[0]
         region = partition_with_region[1]
 
-        manifest = yaml_parse(open(os.path.join(INPUT_FOLDER, testcase + ".yaml"), "r"))
+        manifest = yaml_parse(
+            open(os.path.join(INPUT_FOLDER, f"{testcase}.yaml"), "r")
+        )
+
         # To uncover unicode-related bugs, convert dict to JSON string and parse JSON back to dict
         manifest = json.loads(json.dumps(manifest))
         partition_folder = partition if partition != "aws" else ""
-        expected_filepath = os.path.join(OUTPUT_FOLDER, partition_folder, testcase + ".json")
+        expected_filepath = os.path.join(
+            OUTPUT_FOLDER, partition_folder, f"{testcase}.json"
+        )
+
         expected = json.load(open(expected_filepath, "r"))
 
         with patch("boto3.session.Session.region_name", region):
             parameter_values = get_template_parameter_values()
             mock_policy_loader = MagicMock()
             mock_policy_loader.load.return_value = {
-                "AWSLambdaBasicExecutionRole": "arn:{}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole".format(
-                    partition
-                ),
-                "AmazonDynamoDBFullAccess": "arn:{}:iam::aws:policy/AmazonDynamoDBFullAccess".format(partition),
-                "AmazonDynamoDBReadOnlyAccess": "arn:{}:iam::aws:policy/AmazonDynamoDBReadOnlyAccess".format(partition),
-                "AWSLambdaRole": "arn:{}:iam::aws:policy/service-role/AWSLambdaRole".format(partition),
+                "AWSLambdaBasicExecutionRole": f"arn:{partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+                "AmazonDynamoDBFullAccess": f"arn:{partition}:iam::aws:policy/AmazonDynamoDBFullAccess",
+                "AmazonDynamoDBReadOnlyAccess": f"arn:{partition}:iam::aws:policy/AmazonDynamoDBReadOnlyAccess",
+                "AWSLambdaRole": f"arn:{partition}:iam::aws:policy/service-role/AWSLambdaRole",
             }
+
 
             output_fragment = transform(manifest, parameter_values, mock_policy_loader)
         print(json.dumps(output_fragment, indent=2))
@@ -793,8 +816,14 @@ class TestTranslatorEndToEnd(AbstractTestTranslator):
 )
 @patch("botocore.client.ClientEndpointBridge._check_default_region", mock_get_region)
 def test_transform_invalid_document(testcase):
-    manifest = yaml_parse(open(os.path.join(INPUT_FOLDER, testcase + ".yaml"), "r"))
-    expected = json.load(open(os.path.join(OUTPUT_FOLDER, testcase + ".json"), "r"))
+    manifest = yaml_parse(
+        open(os.path.join(INPUT_FOLDER, f"{testcase}.yaml"), "r")
+    )
+
+    expected = json.load(
+        open(os.path.join(OUTPUT_FOLDER, f"{testcase}.json"), "r")
+    )
+
 
     mock_policy_loader = MagicMock()
     parameter_values = get_template_parameter_values()
@@ -1157,4 +1186,8 @@ def get_resource_by_type(template, type):
 
 
 def get_exception_error_message(e):
-    return reduce(lambda message, error: message + " " + error.message, e.value.causes, e.value.message)
+    return reduce(
+        lambda message, error: f"{message} {error.message}",
+        e.value.causes,
+        e.value.message,
+    )

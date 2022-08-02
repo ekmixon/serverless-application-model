@@ -224,17 +224,19 @@ class DeploymentPreferenceCollection(object):
         if isinstance(value, list):
             for i in range(len(value)):
                 value[i] = self._replace_deployment_types(value[i])
-            return value
         elif is_intrinsic(value):
             for (k, v) in value.items():
                 value[k] = self._replace_deployment_types(v, k)
-            return value
-        else:
-            if value in CODEDEPLOY_PREDEFINED_CONFIGURATIONS_LIST:
-                if key == "Fn::Sub":  # Don't nest a "Sub" in a "Sub"
-                    return ["CodeDeployDefault.Lambda${ConfigName}", {"ConfigName": value}]
-                return fnSub("CodeDeployDefault.Lambda${ConfigName}", {"ConfigName": value})
-            return value
+        elif value in CODEDEPLOY_PREDEFINED_CONFIGURATIONS_LIST:
+            return (
+                ["CodeDeployDefault.Lambda${ConfigName}", {"ConfigName": value}]
+                if key == "Fn::Sub"
+                else fnSub(
+                    "CodeDeployDefault.Lambda${ConfigName}", {"ConfigName": value}
+                )
+            )
+
+        return value
 
     def update_policy(self, function_logical_id):
         deployment_preference = self.get(function_logical_id)
@@ -247,7 +249,7 @@ class DeploymentPreferenceCollection(object):
         )
 
     def deployment_group_logical_id(self, function_logical_id):
-        return function_logical_id + "DeploymentGroup"
+        return f"{function_logical_id}DeploymentGroup"
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

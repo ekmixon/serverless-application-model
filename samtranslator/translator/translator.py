@@ -44,7 +44,10 @@ class Translator:
         self.sam_parser = sam_parser
         self.feature_toggle = None
         self.boto_session = boto_session
-        self.metrics = metrics if metrics else Metrics("ServerlessTransform", DummyMetricsPublisher())
+        self.metrics = metrics or Metrics(
+            "ServerlessTransform", DummyMetricsPublisher()
+        )
+
 
         if self.boto_session:
             ArnGenerator.BOTO_SESSION_REGION_NAME = self.boto_session.region_name
@@ -56,27 +59,32 @@ class Translator:
         :return: a dictionary containing api_logical_id as the key and concatenated String of all function_names
                  associated with this api as the value
         """
-        if resource_dict.get("Type") and resource_dict.get("Type").strip() == "AWS::Serverless::Function":
-            if resource_dict.get("Properties") and resource_dict.get("Properties").get("Events"):
-                events = list(resource_dict.get("Properties").get("Events").values())
-                for item in events:
+        if (
+            resource_dict.get("Type")
+            and resource_dict.get("Type").strip() == "AWS::Serverless::Function"
+            and resource_dict.get("Properties")
+            and resource_dict.get("Properties").get("Events")
+        ):
+            events = list(resource_dict.get("Properties").get("Events").values())
+            for item in events:
                     # If the function event type is `Api` then gets the function name and
                     # adds to the function_names dict with key as the api_name and value as the function_name
-                    if item.get("Type") == "Api" and item.get("Properties") and item.get("Properties").get("RestApiId"):
-                        rest_api = item.get("Properties").get("RestApiId")
-                        if isinstance(rest_api, dict):
-                            api_name = item.get("Properties").get("RestApiId").get("Ref")
-                        else:
-                            api_name = item.get("Properties").get("RestApiId")
-                        if api_name:
-                            resource_dict_copy = copy.deepcopy(resource_dict)
-                            function_name = intrinsics_resolver.resolve_parameter_refs(
-                                resource_dict_copy.get("Properties").get("FunctionName")
+                if item.get("Type") == "Api" and item.get("Properties") and item.get("Properties").get("RestApiId"):
+                    rest_api = item.get("Properties").get("RestApiId")
+                    if isinstance(rest_api, dict):
+                        api_name = item.get("Properties").get("RestApiId").get("Ref")
+                    else:
+                        api_name = item.get("Properties").get("RestApiId")
+                    if api_name:
+                        resource_dict_copy = copy.deepcopy(resource_dict)
+                        if function_name := intrinsics_resolver.resolve_parameter_refs(
+                            resource_dict_copy.get("Properties").get(
+                                "FunctionName"
                             )
-                            if function_name:
-                                self.function_names[api_name] = str(self.function_names.get(api_name, "")) + str(
-                                    function_name
-                                )
+                        ):
+                            self.function_names[api_name] = str(self.function_names.get(api_name, "")) + str(
+                                function_name
+                            )
         return self.function_names
 
     def translate(self, sam_template, parameter_values, feature_toggle=None):
@@ -94,13 +102,15 @@ class Translator:
         :returns: a copy of the template with SAM resources replaced with the corresponding CloudFormation, which may \
                 be dumped into a valid CloudFormation JSON or YAML template
         """
-        self.feature_toggle = (
-            feature_toggle
-            if feature_toggle
-            else FeatureToggle(FeatureToggleDefaultConfigProvider(), stage=None, account_id=None, region=None)
+        self.feature_toggle = feature_toggle or FeatureToggle(
+            FeatureToggleDefaultConfigProvider(),
+            stage=None,
+            account_id=None,
+            region=None,
         )
-        self.function_names = dict()
-        self.redeploy_restapi_parameters = dict()
+
+        self.function_names = {}
+        self.redeploy_restapi_parameters = {}
         sam_parameter_values = SamParameterValues(parameter_values)
         sam_parameter_values.add_default_parameter_values(sam_template)
         sam_parameter_values.add_pseudo_parameter_values(self.boto_session)
@@ -182,12 +192,11 @@ class Translator:
         if "Transform" in template:
             del template["Transform"]
 
-        if len(document_errors) == 0:
-            template = intrinsics_resolver.resolve_sam_resource_id_refs(template, changed_logical_ids)
-            template = intrinsics_resolver.resolve_sam_resource_refs(template, supported_resource_refs)
-            return template
-        else:
+        if document_errors:
             raise InvalidDocumentException(document_errors)
+        template = intrinsics_resolver.resolve_sam_resource_id_refs(template, changed_logical_ids)
+        template = intrinsics_resolver.resolve_sam_resource_refs(template, supported_resource_refs)
+        return template
 
     # private methods
     def _get_resources_to_iterate(self, sam_template, macro_resolver):
@@ -224,7 +233,10 @@ class Translator:
                 functions.append(data)
             elif resource["Type"] == "AWS::Serverless::StateMachine":
                 statemachines.append(data)
-            elif resource["Type"] == "AWS::Serverless::Api" or resource["Type"] == "AWS::Serverless::HttpApi":
+            elif resource["Type"] in [
+                "AWS::Serverless::Api",
+                "AWS::Serverless::HttpApi",
+            ]:
                 apis.append(data)
             else:
                 others.append(data)
@@ -252,7 +264,7 @@ def prepare_plugins(plugins, parameters=None):
         make_policy_template_for_function_plugin(),
     ]
 
-    plugins = [] if not plugins else plugins
+    plugins = plugins or []
 
     # If a ServerlessAppPlugin does not yet exist, create one and add to the beginning of the required plugins list.
     if not any(isinstance(plugin, ServerlessAppPlugin) for plugin in plugins):

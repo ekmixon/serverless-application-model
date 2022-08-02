@@ -17,7 +17,7 @@ class EventBridgeRuleSourceTests(TestCase):
     def test_target_id_when_not_provided(self):
         cfn = self.eb_event_source.to_cloudformation(function=self.func)
         target_id = cfn[0].Targets[0]["Id"]
-        self.assertEqual(target_id, "{}{}".format(self.logical_id, "LambdaTarget"))
+        self.assertEqual(target_id, f"{self.logical_id}LambdaTarget")
 
     def test_target_id_when_provided(self):
         self.eb_event_source.Target = {"Id": "MyTargetId"}
@@ -61,7 +61,10 @@ class EventBridgeRuleSourceTests(TestCase):
 
     def test_to_cloudformation_with_dlq_generated(self):
         dead_letter_config = {"Type": "SQS"}
-        dead_letter_config_translated = {"Arn": {"Fn::GetAtt": [self.logical_id + "Queue", "Arn"]}}
+        dead_letter_config_translated = {
+            "Arn": {"Fn::GetAtt": [f"{self.logical_id}Queue", "Arn"]}
+        }
+
         self.eb_event_source.DeadLetterConfig = dead_letter_config
         resources = self.eb_event_source.to_cloudformation(function=self.func)
         self.assertEqual(len(resources), 4)

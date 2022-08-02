@@ -78,7 +78,7 @@ class ImplicitRestApiPlugin(ImplicitApiPlugin):
                 path = event_properties["Path"]
                 method = event_properties["Method"]
             except KeyError as e:
-                raise InvalidEventException(logicalId, "Event is missing key {}.".format(e))
+                raise InvalidEventException(logicalId, f"Event is missing key {e}.")
 
             if not isinstance(path, six.string_types):
                 raise InvalidEventException(logicalId, "Api Event must have a String specified for 'Path'.")

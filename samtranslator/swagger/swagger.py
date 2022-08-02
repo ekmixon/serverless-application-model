@@ -69,9 +69,7 @@ class SwaggerEditor(object):
 
         path_dict = self.get_path(path)
         path_dict_exists = path_dict is not None
-        if method:
-            return path_dict_exists and method in path_dict
-        return path_dict_exists
+        return path_dict_exists and method in path_dict if method else path_dict_exists
 
     def method_has_integration(self, method):
         """
@@ -81,10 +79,10 @@ class SwaggerEditor(object):
         :param dict method: method dictionary
         :return: true if method has one or multiple integrations
         """
-        for method_definition in self.get_method_contents(method):
-            if self.method_definition_has_integration(method_definition):
-                return True
-        return False
+        return any(
+            self.method_definition_has_integration(method_definition)
+            for method_definition in self.get_method_contents(method)
+        )
 
     def method_definition_has_integration(self, method_definition):
         """
@@ -93,9 +91,7 @@ class SwaggerEditor(object):
         :param dict method_definition: method definition dictionary
         :return: True if an integration exists
         """
-        if method_definition.get(self._X_APIGW_INTEGRATION):
-            return True
-        return False
+        return bool(method_definition.get(self._X_APIGW_INTEGRATION))
 
     def get_method_contents(self, method):
         """
@@ -144,10 +140,11 @@ class SwaggerEditor(object):
             raise InvalidDocumentException(
                 [
                     InvalidTemplateException(
-                        "Value of '{}' path must be a dictionary according to Swagger spec.".format(path)
+                        f"Value of '{path}' path must be a dictionary according to Swagger spec."
                     )
                 ]
             )
+
 
         if self._CONDITIONAL_IF in path_dict:
             path_dict = path_dict[self._CONDITIONAL_IF][1]
@@ -167,7 +164,10 @@ class SwaggerEditor(object):
 
         method = self._normalize_method_name(method)
         if self.has_integration(path, method):
-            raise ValueError("Lambda integration already exists on Path={}, Method={}".format(path, method))
+            raise ValueError(
+                f"Lambda integration already exists on Path={path}, Method={method}"
+            )
+
 
         self.add_path(path, method)
 
@@ -231,7 +231,7 @@ class SwaggerEditor(object):
 
         method = self._normalize_method_name(method)
         if self.has_integration(path, method):
-            raise ValueError("Integration already exists on Path={}, Method={}".format(path, method))
+            raise ValueError(f"Integration already exists on Path={path}, Method={method}")
 
         self.add_path(path, method)
 
@@ -327,7 +327,7 @@ class SwaggerEditor(object):
             allowed_methods = self._make_cors_allowed_methods_for_path(path)
 
             # APIGW expects the value to be a "string expression". Hence wrap in another quote. Ex: "'GET,POST,DELETE'"
-            allowed_methods = "'{}'".format(allowed_methods)
+            allowed_methods = f"'{allowed_methods}'"
 
         if allow_credentials is not True:
             allow_credentials = False
@@ -365,11 +365,7 @@ class SwaggerEditor(object):
         """
 
         ALLOW_ORIGIN = "Access-Control-Allow-Origin"
-        ALLOW_HEADERS = "Access-Control-Allow-Headers"
-        ALLOW_METHODS = "Access-Control-Allow-Methods"
-        MAX_AGE = "Access-Control-Max-Age"
-        ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials"
-        HEADER_RESPONSE = lambda x: "method.response.header." + x
+        HEADER_RESPONSE = lambda x: f"method.response.header.{x}"
 
         response_parameters = {
             # AllowedOrigin is always required
@@ -388,16 +384,20 @@ class SwaggerEditor(object):
         #    https://fetch.spec.whatwg.org/#http-new-header-syntax
         #
         if allowed_headers:
+            ALLOW_HEADERS = "Access-Control-Allow-Headers"
             response_parameters[HEADER_RESPONSE(ALLOW_HEADERS)] = allowed_headers
             response_headers[ALLOW_HEADERS] = {"type": "string"}
         if allowed_methods:
+            ALLOW_METHODS = "Access-Control-Allow-Methods"
             response_parameters[HEADER_RESPONSE(ALLOW_METHODS)] = allowed_methods
             response_headers[ALLOW_METHODS] = {"type": "string"}
         if max_age is not None:
+            MAX_AGE = "Access-Control-Max-Age"
             # MaxAge can be set to 0, which is a valid value. So explicitly check against None
             response_parameters[HEADER_RESPONSE(MAX_AGE)] = max_age
             response_headers[MAX_AGE] = {"type": "integer"}
         if allow_credentials is True:
+            ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials"
             # Allow-Credentials only has a valid value of true, it should be omitted otherwise.
             # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials
             response_parameters[HEADER_RESPONSE(ALLOW_CREDENTIALS)] = "'true'"
@@ -445,17 +445,7 @@ class SwaggerEditor(object):
             allow_methods = methods
             allow_methods.append("options")  # Always add Options to the CORS methods response
 
-        # Clean up the result:
-        #
-        # - HTTP Methods **must** be upper case and they are case sensitive.
-        #   (https://tools.ietf.org/html/rfc7231#section-4.1)
-        # - Convert to set to remove any duplicates
-        # - Sort to keep this list stable because it could be constructed from dictionary keys which are *not* ordered.
-        #   Therefore we might get back a different list each time the code runs. To prevent any unnecessary
-        #   regression, we sort the list so the returned value is stable.
-        allow_methods = list({m.upper() for m in allow_methods})
-        allow_methods.sort()
-
+        allow_methods = sorted({m.upper() for m in allow_methods})
         # Allow-Methods is comma separated string
         return ",".join(allow_methods)
 
@@ -476,20 +466,20 @@ class SwaggerEditor(object):
         Note: this method is idempotent
         """
 
-        aws_iam_security_definition = {
-            "AWS_IAM": {
-                "x-amazon-apigateway-authtype": "awsSigv4",
-                "type": "apiKey",
-                "name": "Authorization",
-                "in": "header",
-            }
-        }
-
         self.security_definitions = self.security_definitions or {}
 
         # Only add the security definition if it doesn't exist.  This helps ensure
         # that we minimize changes to the swagger in the case of user defined swagger
         if "AWS_IAM" not in self.security_definitions:
+            aws_iam_security_definition = {
+                "AWS_IAM": {
+                    "x-amazon-apigateway-authtype": "awsSigv4",
+                    "type": "apiKey",
+                    "name": "Authorization",
+                    "in": "header",
+                }
+            }
+
             self.security_definitions.update(aws_iam_security_definition)
 
     def add_apikey_security_definition(self):
@@ -498,13 +488,13 @@ class SwaggerEditor(object):
         Note: this method is idempotent
         """
 
-        api_key_security_definition = {"api_key": {"type": "apiKey", "name": "x-api-key", "in": "header"}}
-
         self.security_definitions = self.security_definitions or {}
 
         # Only add the security definition if it doesn't exist.  This helps ensure
         # that we minimize changes to the swagger in the case of user defined swagger
         if "api_key" not in self.security_definitions:
+            api_key_security_definition = {"api_key": {"type": "apiKey", "name": "x-api-key", "in": "header"}}
+
             self.security_definitions.update(api_key_security_definition)
 
     def set_path_default_authorizer(
@@ -540,10 +530,11 @@ class SwaggerEditor(object):
                         raise InvalidDocumentException(
                             [
                                 InvalidTemplateException(
-                                    "{} for path {} is not a valid dictionary.".format(method_definition, path)
+                                    f"{method_definition} for path {path} is not a valid dictionary."
                                 )
                             ]
                         )
+
                     if not self.method_definition_has_integration(method_definition):
                         continue
                     existing_security = method_definition.get("security", [])
@@ -562,10 +553,11 @@ class SwaggerEditor(object):
                             raise InvalidDocumentException(
                                 [
                                     InvalidTemplateException(
-                                        "{} in Security for path {} is not a valid dictionary.".format(security, path)
+                                        f"{security} in Security for path {path} is not a valid dictionary."
                                     )
                                 ]
                             )
+
                         if authorizer_names.isdisjoint(security.keys()):
                             existing_non_authorizer_security.append(security)
                         else:
@@ -590,21 +582,22 @@ class SwaggerEditor(object):
                     if none_idx > -1:
                         del existing_non_authorizer_security[none_idx]
 
-                    # Existing Authorizer found (defined at Function/Path/Method); use that instead of default
                     elif existing_authorizer_security:
                         authorizer_security = existing_authorizer_security
 
-                    # No existing Authorizer found; use default
                     else:
-                        security_dict = {}
-                        security_dict[default_authorizer] = self._get_authorization_scopes(
-                            api_authorizers, default_authorizer
-                        )
+                        security_dict = {
+                            default_authorizer: self._get_authorization_scopes(
+                                api_authorizers, default_authorizer
+                            )
+                        }
+
                         authorizer_security = [security_dict]
 
-                    security = existing_non_authorizer_security + authorizer_security
-
-                    if security:
+                    if (
+                        security := existing_non_authorizer_security
+                        + authorizer_security
+                    ):
                         method_definition["security"] = security
 
                         # The first element of the method_definition['security'] should be AWS_IAM
@@ -635,7 +628,7 @@ class SwaggerEditor(object):
                     continue
 
                 existing_security = method_definition.get("security", [])
-                apikey_security_names = set(["api_key", "api_key_false"])
+                apikey_security_names = {"api_key", "api_key_false"}
                 existing_non_apikey_security = []
                 existing_apikey_security = []
                 apikey_security = []
@@ -666,10 +659,8 @@ class SwaggerEditor(object):
                 if apikeyfalse_idx > -1:
                     del existing_apikey_security[apikeyfalse_idx]
 
-                # No existing ApiKey setting found or it's already set to the default
                 else:
-                    security_dict = {}
-                    security_dict["api_key"] = []
+                    security_dict = {"api_key": []}
                     apikey_security = [security_dict]
 
                 security = existing_non_apikey_security + apikey_security
@@ -721,8 +712,7 @@ class SwaggerEditor(object):
 
             existing_security = method_definition.get("security", [])
 
-            security_dict = {}
-            security_dict[authorizer_name] = []
+            security_dict = {authorizer_name: []}
             authorizer_security = [security_dict]
 
             # This assumes there are no autorizers already configured in the existing security block
@@ -762,20 +752,14 @@ class SwaggerEditor(object):
 
             existing_security = method_definition.get("security", [])
 
+            # We want to enable apikey required security
+            security_dict = {}
             if apikey_required:
-                # We want to enable apikey required security
-                security_dict = {}
                 security_dict["api_key"] = []
-                apikey_security = [security_dict]
                 self.add_apikey_security_definition()
             else:
-                # The method explicitly does NOT require apikey and there is an API default
-                # so let's add a marker 'api_key_false' so that we don't incorrectly override
-                # with the api default
-                security_dict = {}
                 security_dict["api_key_false"] = []
-                apikey_security = [security_dict]
-
+            apikey_security = [security_dict]
             # This assumes there are no autorizers already configured in the existing security block
             security = existing_security + apikey_security
 
@@ -848,8 +832,9 @@ class SwaggerEditor(object):
                 parameter = {
                     "in": "body",
                     "name": model_name,
-                    "schema": {"$ref": "#/definitions/{}".format(model_name)},
+                    "schema": {"$ref": f"#/definitions/{model_name}"},
                 }
+
 
                 if model_required is not None:
                     parameter["required"] = model_required
@@ -862,8 +847,15 @@ class SwaggerEditor(object):
                 SwaggerEditor.get_openapi_version_3_regex(), self._doc["openapi"]
             ):
                 method_definition["requestBody"] = {
-                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/{}".format(model_name)}}}
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": f"#/components/schemas/{model_name}"
+                            }
+                        }
+                    }
                 }
+
 
                 if model_required is not None:
                     method_definition["requestBody"]["required"] = model_required
@@ -993,22 +985,28 @@ class SwaggerEditor(object):
             return
 
         if effect not in ["Allow", "Deny"]:
-            raise ValueError("Effect must be one of {}".format(["Allow", "Deny"]))
+            raise ValueError(f'Effect must be one of {["Allow", "Deny"]}')
 
         if not isinstance(policy_list, (dict, list)):
             raise InvalidDocumentException(
-                [InvalidTemplateException("Type of '{}' must be a list or dictionary".format(policy_list))]
+                [
+                    InvalidTemplateException(
+                        f"Type of '{policy_list}' must be a list or dictionary"
+                    )
+                ]
             )
+
 
         if not isinstance(policy_list, list):
             policy_list = [policy_list]
 
         self.resource_policy["Version"] = "2012-10-17"
-        policy_statement = {}
-        policy_statement["Effect"] = effect
-        policy_statement["Action"] = "execute-api:Invoke"
-        policy_statement["Resource"] = resource_list
-        policy_statement["Principal"] = {"AWS": policy_list}
+        policy_statement = {
+            "Effect": effect,
+            "Action": "execute-api:Invoke",
+            "Resource": resource_list,
+            "Principal": {"AWS": policy_list},
+        }
 
         if self.resource_policy.get("Statement") is None:
             self.resource_policy["Statement"] = policy_statement
@@ -1031,7 +1029,7 @@ class SwaggerEditor(object):
         path = SwaggerEditor.get_path_without_trailing_slash(path)
 
         for m in methods:
-            method = "*" if (m.lower() == self._X_ANY_METHOD or m.lower() == "any") else m.upper()
+            method = "*" if m.lower() in [self._X_ANY_METHOD, "any"] else m.upper()
             resource = "execute-api:/${__Stage__}/" + method + path
             resource = fnSub(resource, {"__Stage__": stage})
             uri_list.extend([resource])
@@ -1050,21 +1048,23 @@ class SwaggerEditor(object):
             ip_list = [ip_list]
 
         if conditional not in ["IpAddress", "NotIpAddress"]:
-            raise ValueError("Conditional must be one of {}".format(["IpAddress", "NotIpAddress"]))
+            raise ValueError(f'Conditional must be one of {["IpAddress", "NotIpAddress"]}')
 
         self.resource_policy["Version"] = "2012-10-17"
-        allow_statement = {}
-        allow_statement["Effect"] = "Allow"
-        allow_statement["Action"] = "execute-api:Invoke"
-        allow_statement["Resource"] = resource_list
-        allow_statement["Principal"] = "*"
+        allow_statement = {
+            "Effect": "Allow",
+            "Action": "execute-api:Invoke",
+            "Resource": resource_list,
+            "Principal": "*",
+        }
 
-        deny_statement = {}
-        deny_statement["Effect"] = "Deny"
-        deny_statement["Action"] = "execute-api:Invoke"
-        deny_statement["Resource"] = resource_list
-        deny_statement["Principal"] = "*"
-        deny_statement["Condition"] = {conditional: {"aws:SourceIp": ip_list}}
+        deny_statement = {
+            "Effect": "Deny",
+            "Action": "execute-api:Invoke",
+            "Resource": resource_list,
+            "Principal": "*",
+            "Condition": {conditional: {"aws:SourceIp": ip_list}},
+        }
 
         if self.resource_policy.get("Statement") is None:
             self.resource_policy["Statement"] = [allow_statement, deny_statement]
@@ -1086,7 +1086,10 @@ class SwaggerEditor(object):
         """
 
         if conditional not in ["StringNotEquals", "StringEquals"]:
-            raise ValueError("Conditional must be one of {}".format(["StringNotEquals", "StringEquals"]))
+            raise ValueError(
+                f'Conditional must be one of {["StringNotEquals", "StringEquals"]}'
+            )
+
 
         condition = {}
         string_endpoint_list = endpoint_dict.get("StringEndpointList")
@@ -1117,18 +1120,20 @@ class SwaggerEditor(object):
             return
 
         self.resource_policy["Version"] = "2012-10-17"
-        allow_statement = {}
-        allow_statement["Effect"] = "Allow"
-        allow_statement["Action"] = "execute-api:Invoke"
-        allow_statement["Resource"] = resource_list
-        allow_statement["Principal"] = "*"
+        allow_statement = {
+            "Effect": "Allow",
+            "Action": "execute-api:Invoke",
+            "Resource": resource_list,
+            "Principal": "*",
+        }
 
-        deny_statement = {}
-        deny_statement["Effect"] = "Deny"
-        deny_statement["Action"] = "execute-api:Invoke"
-        deny_statement["Resource"] = resource_list
-        deny_statement["Principal"] = "*"
-        deny_statement["Condition"] = {conditional: condition}
+        deny_statement = {
+            "Effect": "Deny",
+            "Action": "execute-api:Invoke",
+            "Resource": resource_list,
+            "Principal": "*",
+            "Condition": {conditional: condition},
+        }
 
         if self.resource_policy.get("Statement") is None:
             self.resource_policy["Statement"] = [allow_statement, deny_statement]
@@ -1259,12 +1264,12 @@ class SwaggerEditor(object):
         :param authorizers: authorizer definitions
         :param default_authorizer: name of the default authorizer
         """
-        if authorizers is not None:
-            if (
-                authorizers.get(default_authorizer)
-                and authorizers[default_authorizer].get("AuthorizationScopes") is not None
-            ):
-                return authorizers[default_authorizer].get("AuthorizationScopes")
+        if authorizers is not None and (
+            authorizers.get(default_authorizer)
+            and authorizers[default_authorizer].get("AuthorizationScopes")
+            is not None
+        ):
+            return authorizers[default_authorizer].get("AuthorizationScopes")
         return []
 
     @staticmethod
@@ -1282,20 +1287,15 @@ class SwaggerEditor(object):
             return method
 
         method = method.lower()
-        if method == "any":
-            return SwaggerEditor._X_ANY_METHOD
-        else:
-            return method
+        return SwaggerEditor._X_ANY_METHOD if method == "any" else method
 
     @staticmethod
     def get_openapi_versions_supported_regex():
-        openapi_version_supported_regex = r"\A[2-3](\.\d)(\.\d)?$"
-        return openapi_version_supported_regex
+        return r"\A[2-3](\.\d)(\.\d)?$"
 
     @staticmethod
     def get_openapi_version_3_regex():
-        openapi_version_3_regex = r"\A3(\.\d)(\.\d)?$"
-        return openapi_version_3_regex
+        return r"\A3(\.\d)(\.\d)?$"
 
     @staticmethod
     def safe_compare_regex_with_string(regex, data):
@@ -1315,16 +1315,9 @@ class SwaggerEditor(object):
         :param boolean validate_request: Boolean if validate request
         :return string: Normalized validator name
         """
-        if validate_body and validate_parameters:
-            return "body-and-params"
-
-        if validate_body and not validate_parameters:
-            return "body-only"
-
-        if not validate_body and validate_parameters:
-            return "params-only"
-
-        return "no-validation"
+        if validate_body:
+            return "body-and-params" if validate_parameters else "body-only"
+        return "params-only" if validate_parameters else "no-validation"
 
     @staticmethod
     def _validate_list_property_is_resolved(property_list):
@@ -1335,7 +1328,6 @@ class SwaggerEditor(object):
         :return bool: True if the property_list is all of type string otherwise False
         """
 
-        if property_list is not None and not all(isinstance(x, string_types) for x in property_list):
-            return False
-
-        return True
+        return property_list is None or all(
+            isinstance(x, string_types) for x in property_list
+        )

@@ -178,7 +178,10 @@ class HttpApiGenerator(object):
 
         elif isinstance(self.cors_configuration, dict):
             # Make sure keys in the dict are recognized
-            if not all(key in CorsProperties._fields for key in self.cors_configuration.keys()):
+            if any(
+                key not in CorsProperties._fields
+                for key in self.cors_configuration.keys()
+            ):
                 raise InvalidResourceException(self.logical_id, "Invalid value for 'Cors' property.")
 
             properties = CorsProperties(**self.cors_configuration)
@@ -229,14 +232,14 @@ class HttpApiGenerator(object):
                 self.logical_id, "Custom Domains only works if both DomainName and CertificateArn" " are provided."
             )
 
-        self.domain["ApiDomainName"] = "{}{}".format(
-            "ApiGatewayDomainNameV2", logical_id_generator.LogicalIdGenerator("", self.domain.get("DomainName")).gen()
-        )
+        self.domain[
+            "ApiDomainName"
+        ] = f'ApiGatewayDomainNameV2{logical_id_generator.LogicalIdGenerator("", self.domain.get("DomainName")).gen()}'
+
 
         domain = ApiGatewayV2DomainName(
             self.domain.get("ApiDomainName"), attributes=self.passthrough_resource_attributes
         )
-        domain_config = dict()
         domain.DomainName = self.domain.get("DomainName")
         domain.Tags = self.tags
         endpoint = self.domain.get("EndpointConfiguration")
@@ -248,43 +251,45 @@ class HttpApiGenerator(object):
         elif endpoint not in ["REGIONAL"]:
             raise InvalidResourceException(
                 self.logical_id,
-                "EndpointConfiguration for Custom Domains must be one of {}.".format(["REGIONAL"]),
+                f'EndpointConfiguration for Custom Domains must be one of {["REGIONAL"]}.',
             )
-        domain_config["EndpointType"] = endpoint
-        domain_config["CertificateArn"] = self.domain.get("CertificateArn")
+
+        domain_config = {
+            "EndpointType": endpoint,
+            "CertificateArn": self.domain.get("CertificateArn"),
+        }
+
         if self.domain.get("SecurityPolicy", None):
             domain_config["SecurityPolicy"] = self.domain.get("SecurityPolicy")
 
         domain.DomainNameConfigurations = [domain_config]
 
-        mutual_tls_auth = self.domain.get("MutualTlsAuthentication", None)
-        if mutual_tls_auth:
-            if isinstance(mutual_tls_auth, dict):
-                if not set(mutual_tls_auth.keys()).issubset({"TruststoreUri", "TruststoreVersion"}):
-                    invalid_keys = []
-                    for key in mutual_tls_auth.keys():
-                        if key not in {"TruststoreUri", "TruststoreVersion"}:
-                            invalid_keys.append(key)
-                    invalid_keys.sort()
-                    raise InvalidResourceException(
-                        ",".join(invalid_keys),
-                        "Available MutualTlsAuthentication fields are {}.".format(
-                            ["TruststoreUri", "TruststoreVersion"]
-                        ),
-                    )
-                domain.MutualTlsAuthentication = {}
-                if mutual_tls_auth.get("TruststoreUri", None):
-                    domain.MutualTlsAuthentication["TruststoreUri"] = mutual_tls_auth["TruststoreUri"]
-                if mutual_tls_auth.get("TruststoreVersion", None):
-                    domain.MutualTlsAuthentication["TruststoreVersion"] = mutual_tls_auth["TruststoreVersion"]
-            else:
+        if mutual_tls_auth := self.domain.get("MutualTlsAuthentication", None):
+            if not isinstance(mutual_tls_auth, dict):
                 raise InvalidResourceException(
                     mutual_tls_auth,
-                    "MutualTlsAuthentication must be a map with at least one of the following fields {}.".format(
-                        ["TruststoreUri", "TruststoreVersion"]
-                    ),
+                    f'MutualTlsAuthentication must be a map with at least one of the following fields {["TruststoreUri", "TruststoreVersion"]}.',
                 )
 
+
+            if not set(mutual_tls_auth.keys()).issubset({"TruststoreUri", "TruststoreVersion"}):
+                invalid_keys = [
+                    key
+                    for key in mutual_tls_auth.keys()
+                    if key not in {"TruststoreUri", "TruststoreVersion"}
+                ]
+
+                invalid_keys.sort()
+                raise InvalidResourceException(
+                    ",".join(invalid_keys),
+                    f'Available MutualTlsAuthentication fields are {["TruststoreUri", "TruststoreVersion"]}.',
+                )
+
+            domain.MutualTlsAuthentication = {}
+            if mutual_tls_auth.get("TruststoreUri", None):
+                domain.MutualTlsAuthentication["TruststoreUri"] = mutual_tls_auth["TruststoreUri"]
+            if mutual_tls_auth.get("TruststoreVersion", None):
+                domain.MutualTlsAuthentication["TruststoreVersion"] = mutual_tls_auth["TruststoreVersion"]
         # Create BasepathMappings
         if self.domain.get("BasePath") and isinstance(self.domain.get("BasePath"), string_types):
             basepaths = [self.domain.get("BasePath")]
@@ -312,8 +317,10 @@ class HttpApiGenerator(object):
                 "", route53.get("HostedZoneId") or route53.get("HostedZoneName")
             ).gen()
             record_set_group = Route53RecordSetGroup(
-                "RecordSetGroup" + logical_id, attributes=self.passthrough_resource_attributes
+                f"RecordSetGroup{logical_id}",
+                attributes=self.passthrough_resource_attributes,
             )
+
             if "HostedZoneId" in route53:
                 record_set_group.HostedZoneId = route53.get("HostedZoneId")
             elif "HostedZoneName" in route53:
@@ -327,16 +334,18 @@ class HttpApiGenerator(object):
 
         if basepaths is None:
             basepath_mapping = ApiGatewayV2ApiMapping(
-                self.logical_id + "ApiMapping", attributes=self.passthrough_resource_attributes
+                f"{self.logical_id}ApiMapping",
+                attributes=self.passthrough_resource_attributes,
             )
+
             basepath_mapping.DomainName = ref(self.domain.get("ApiDomainName"))
             basepath_mapping.ApiId = ref(http_api.logical_id)
-            basepath_mapping.Stage = ref(http_api.logical_id + ".Stage")
+            basepath_mapping.Stage = ref(f"{http_api.logical_id}.Stage")
             basepath_resource_list.extend([basepath_mapping])
         else:
+            # search for invalid characters in the path and raise error if there are
+            invalid_regex = r"[^0-9a-zA-Z\/\-\_]+"
             for path in basepaths:
-                # search for invalid characters in the path and raise error if there are
-                invalid_regex = r"[^0-9a-zA-Z\/\-\_]+"
                 if re.search(invalid_regex, path) is not None:
                     raise InvalidResourceException(self.logical_id, "Invalid Basepath name provided.")
 
@@ -353,21 +362,17 @@ class HttpApiGenerator(object):
                 basepath_mapping = ApiGatewayV2ApiMapping(logical_id, attributes=self.passthrough_resource_attributes)
                 basepath_mapping.DomainName = ref(self.domain.get("ApiDomainName"))
                 basepath_mapping.ApiId = ref(http_api.logical_id)
-                basepath_mapping.Stage = ref(http_api.logical_id + ".Stage")
+                basepath_mapping.Stage = ref(f"{http_api.logical_id}.Stage")
                 basepath_mapping.ApiMappingKey = path
                 basepath_resource_list.extend([basepath_mapping])
         return basepath_resource_list
 
     def _construct_record_sets_for_domain(self, domain):
-        recordset_list = []
-        recordset = {}
         route53 = domain.get("Route53")
 
-        recordset["Name"] = domain.get("DomainName")
-        recordset["Type"] = "A"
+        recordset = {"Name": domain.get("DomainName"), "Type": "A"}
         recordset["AliasTarget"] = self._construct_alias_target(self.domain)
-        recordset_list.extend([recordset])
-
+        recordset_list = [recordset]
         recordset_ipv6 = {}
         if route53.get("IpV6"):
             recordset_ipv6["Name"] = domain.get("DomainName")
@@ -384,14 +389,13 @@ class HttpApiGenerator(object):
 
         if target_health is not None:
             alias_target["EvaluateTargetHealth"] = target_health
-        if domain.get("EndpointConfiguration") == "REGIONAL":
-            alias_target["HostedZoneId"] = fnGetAtt(self.domain.get("ApiDomainName"), "RegionalHostedZoneId")
-            alias_target["DNSName"] = fnGetAtt(self.domain.get("ApiDomainName"), "RegionalDomainName")
-        else:
+        if domain.get("EndpointConfiguration") != "REGIONAL":
             raise InvalidResourceException(
                 self.logical_id,
                 "Only REGIONAL endpoint is supported on HTTP APIs.",
             )
+        alias_target["HostedZoneId"] = fnGetAtt(self.domain.get("ApiDomainName"), "RegionalHostedZoneId")
+        alias_target["DNSName"] = fnGetAtt(self.domain.get("ApiDomainName"), "RegionalDomainName")
         return alias_target
 
     def _add_auth(self):
@@ -401,13 +405,13 @@ class HttpApiGenerator(object):
         if not self.auth:
             return
 
-        if self.auth and not self.definition_body:
+        if not self.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Auth works only with inline OpenApi specified in the 'DefinitionBody' property."
             )
 
         # Make sure keys in the dict are recognized
-        if not all(key in AuthProperties._fields for key in self.auth.keys()):
+        if any(key not in AuthProperties._fields for key in self.auth.keys()):
             raise InvalidResourceException(self.logical_id, "Invalid value for 'Auth' property")
 
         if not OpenApiEditor.is_valid(self.definition_body):
@@ -503,8 +507,10 @@ class HttpApiGenerator(object):
         for authorizer_name, authorizer in authorizers_config.items():
             if not isinstance(authorizer, dict):
                 raise InvalidResourceException(
-                    self.logical_id, "Authorizer %s must be a dictionary." % (authorizer_name)
+                    self.logical_id,
+                    f"Authorizer {authorizer_name} must be a dictionary.",
                 )
+
 
             if "OpenIdConnectUrl" in authorizer:
                 raise InvalidResourceException(
@@ -578,9 +584,12 @@ class HttpApiGenerator(object):
         if stage_name_prefix.isalnum():
             stage_logical_id = self.logical_id + stage_name_prefix + "Stage"
         elif stage_name_prefix == DefaultStageName:
-            stage_logical_id = self.logical_id + "ApiGatewayDefaultStage"
+            stage_logical_id = f"{self.logical_id}ApiGatewayDefaultStage"
         else:
-            generator = logical_id_generator.LogicalIdGenerator(self.logical_id + "Stage", stage_name_prefix)
+            generator = logical_id_generator.LogicalIdGenerator(
+                f"{self.logical_id}Stage", stage_name_prefix
+            )
+
             stage_logical_id = generator.gen()
         stage = ApiGatewayV2Stage(stage_logical_id, attributes=self.passthrough_resource_attributes)
         stage.ApiId = ref(self.logical_id)

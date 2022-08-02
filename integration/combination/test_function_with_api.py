@@ -18,14 +18,15 @@ class TestFunctionWithApi(BaseTest):
         # that we would expect based on the resource policy
 
         # Paths are specified in the YAML template
-        get_api_policy_expectation = "{}/{}/{}/{}".format(physical_api_id, "*", "GET", "pathget")
-        post_api_policy_expectation = "{}/{}/{}/{}".format(physical_api_id, "*", "POST", "pathpost")
+        get_api_policy_expectation = f"{physical_api_id}/*/GET/pathget"
+        post_api_policy_expectation = f"{physical_api_id}/*/POST/pathpost"
 
         self.assertTrue(
             get_api_policy_expectation in policy,
-            "{} should be present in policy {}".format(get_api_policy_expectation, policy),
+            f"{get_api_policy_expectation} should be present in policy {policy}",
         )
+
         self.assertTrue(
             post_api_policy_expectation in policy,
-            "{} should be present in policy {}".format(post_api_policy_expectation, policy),
+            f"{post_api_policy_expectation} should be present in policy {policy}",
         )
